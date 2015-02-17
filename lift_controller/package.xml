@@ -9,11 +9,23 @@
   <license>TODO</license>
   <buildtool_depend>catkin</buildtool_depend>
   
+  <build_depend>contact_sensor_msgs</build_depend>
+  <build_depend>roscomm</build_depend>
   <build_depend>roscpp</build_depend>
-  <build_depend>rose_transformations</build_depend>
+  <build_depend>rose_base_msgs</build_depend>
+  <build_depend>rose_hardware_comm</build_depend>
+  <build_depend>rose_hardware_controller</build_depend>
+  <build_depend>shared_variables</build_depend>
+  <build_depend>std_msgs</build_depend>
   
+  <run_depend>contact_sensor_msgs</run_depend>
+  <run_depend>roscomm</run_depend>
   <run_depend>roscpp</run_depend>
-  <run_depend>rose_transformations</run_depend>
+  <run_depend>rose_base_msgs</run_depend>
+  <run_depend>rose_hardware_comm</run_depend>
+  <run_depend>rose_hardware_controller</run_depend>
+  <run_depend>shared_variables</run_depend>
+  <run_depend>std_msgs</run_depend>
 
   <export>
   </export>

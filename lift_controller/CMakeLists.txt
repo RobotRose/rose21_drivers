@@ -5,15 +5,14 @@ project(rose21_lift_controller)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-	roscpp
-	rose_transformations
-	rose_base_msgs
-	std_msgs
 	contact_sensor_msgs
 	roscomm
-	shared_variables
-	rose_hardware_controller
+	roscpp
+	rose_base_msgs
 	rose_hardware_comm
+	rose_hardware_controller
+	shared_variables
+	std_msgs
 	)
 
 catkin_package(
@@ -22,8 +21,14 @@ catkin_package(
  LIBRARIES 
 
  CATKIN_DEPENDS 
- 	roscpp
-	rose_transformations
+	contact_sensor_msgs
+	roscomm
+	roscpp
+	rose_base_msgs
+	rose_hardware_comm
+	rose_hardware_controller
+	shared_variables
+	std_msgs
  DEPENDS 
 
 )
