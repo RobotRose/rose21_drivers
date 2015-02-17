@@ -7,7 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
 		rose_base_msgs
 		rose_common
 		rose_transformations
-		rose_watchdog
+		rose_watchdogs
 		rose_hardware_controller
 		server_multiple_client
 		shared_variables
@@ -25,7 +25,7 @@ catkin_package(
 	rose_base_msgs
 	rose_common
 	rose_transformations
-	rose_watchdog
+	rose_watchdogs
 	server_multiple_client
 	shared_variables
  DEPENDS 
