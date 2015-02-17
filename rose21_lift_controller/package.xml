@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>rose21_drivers</name>
+  <name>rose21_lift_controller</name>
   <version>0.0.0</version>
   <description>The rose21 lift controller</description>
 
