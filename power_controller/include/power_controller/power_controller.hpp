@@ -27,7 +27,6 @@
 
 #include "operator_messaging/operator_messaging.hpp"
 
-
 // Getters
 #define POWER_CONTROL_GET_POWER_OUTPUTS     "200"
 #define POWER_CONTROL_GET_BATTERY           "201"
