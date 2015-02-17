@@ -50,7 +50,7 @@ WheelController::WheelController(string name, ros::NodeHandle n, string serial_p
     smc_->startServer();
 
     // Publishers
-    wheelunit_states_pub_    = n.advertise<rose21_platform::wheelunit_states>("/wheel_controller/wheelunit_states", 1);
+    wheelunit_states_pub_    = n.advertise<rose_base_msgs::wheelunit_states>("/wheel_controller/wheelunit_states", 1);
 
     // Add Wheelunits to the map
     wheelunits_.push_back( WheelUnit("FR", 0) );
@@ -1221,7 +1221,7 @@ void WheelController::publishWheelUnitStates()
     //! @todo OH: HACK HARD CODED INDEXES!
 
     // Fill message with lowlevel values
-    rose21_platform::wheelunit_states wheelunit_states; 
+    rose_base_msgs::wheelunit_states wheelunit_states; 
     wheelunit_states.angle_FR       = wheelunits_[0].measured_rotation_;   
     wheelunit_states.angle_FL       = wheelunits_[1].measured_rotation_;
     wheelunit_states.angle_BR       = wheelunits_[2].measured_rotation_;
@@ -1291,7 +1291,7 @@ void WheelController::publishWheelUnitTransforms()
     }
 }
 
-void WheelController::CB_WheelUnitStatesRequest(const rose21_platform::wheelunit_statesGoalConstPtr& goal, SMC* smc)
+void WheelController::CB_WheelUnitStatesRequest(const rose_base_msgs::wheelunit_statesGoalConstPtr& goal, SMC* smc)
 {
     // Do not try to update as long as the emercency button is pressed
     if(sh_emergency_)
@@ -1316,7 +1316,7 @@ void WheelController::CB_WheelUnitStatesRequest(const rose21_platform::wheelunit
     wheelunits_[3].set_velocity_ = goal->requested_state.velocity_BL;
 
 
-    rose21_platform::wheelunit_statesResult server_result;
+    rose_base_msgs::wheelunit_statesResult server_result;
 
     if(sendWheelState())  //!  @todo OH what if canceled in the mean time?
     {

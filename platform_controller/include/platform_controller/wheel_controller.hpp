@@ -34,11 +34,11 @@
 #include "shared_variables/shared_variable.hpp"
 #include "action_result_message.hpp"
 
-#include "rose21_platform/wheelunit_states.h"
-#include "rose21_platform/wheelunit_statesAction.h"
-#include "rose21_platform/wheelunit_statesActionGoal.h"
-#include "rose21_platform/wheelunit_statesActionResult.h"
-#include "rose21_platform/wheelunit_statesActionFeedback.h"
+#include "rose_base_msgs/wheelunit_states.h"
+#include "rose_base_msgs/wheelunit_statesAction.h"
+#include "rose_base_msgs/wheelunit_statesActionGoal.h"
+#include "rose_base_msgs/wheelunit_statesActionResult.h"
+#include "rose_base_msgs/wheelunit_statesActionFeedback.h"
 
 #include "odometry/odometry.hpp"
 #include <map>
@@ -123,7 +123,7 @@ using namespace shared_variables;
 class WheelController : public HardwareController<Serial>
 {
   protected:
-    typedef ServerMultipleClient<rose21_platform::wheelunit_statesAction> SMC;
+    typedef ServerMultipleClient<rose_base_msgs::wheelunit_statesAction> SMC;
 
   public:
     WheelController(string name, ros::NodeHandle n, string port_name, int baudrate);
@@ -196,7 +196,7 @@ class WheelController : public HardwareController<Serial>
     bool    writeWheelStates();
     void    publishWheelUnitStates();
     void    publishWheelUnitTransforms();
-    void    CB_WheelUnitStatesRequest(const rose21_platform::wheelunit_statesGoalConstPtr& goal, SMC* smc);
+    void    CB_WheelUnitStatesRequest(const rose_base_msgs::wheelunit_statesGoalConstPtr& goal, SMC* smc);
     void    CB_cancelAllMovements();
 
     int     alarm_number_;

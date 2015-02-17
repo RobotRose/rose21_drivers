@@ -117,8 +117,8 @@ class PowerController : public HardwareController<Serial>
     bool update();
     bool completeUpdate();
 
-    rose21_platform::battery_state getBatteryState(int battery_number);
-    rose21_platform::battery_state getCombinedBatteryState();
+    rose_base_msgs::bumpers_state getBatteryState(int battery_number);
+    rose_base_msgs::bumpers_state getCombinedBatteryState();
     void publishBatteryStates();
 
     void showState();

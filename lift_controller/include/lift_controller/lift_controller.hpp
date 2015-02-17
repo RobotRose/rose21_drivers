@@ -189,7 +189,7 @@ class LiftController : public HardwareController<Serial>
 
     // Callbacks
     void                    CB_SetControllerState(const std_msgs::Bool::ConstPtr& enable);
-    void                    CB_LiftPositionRequest(const rose21_platform::lift_command::ConstPtr& lift_command);
+    void                    CB_LiftPositionRequest(const rose_base_msgs::lift_command::ConstPtr& lift_command);
 
     // Variables
     ros::Publisher          lift_pub_;

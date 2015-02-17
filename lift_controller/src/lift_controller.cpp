@@ -26,8 +26,8 @@ LiftController::LiftController(string name, ros::NodeHandle n, string serial_por
     comm_interface_         = Serial(name, serial_port, baudrate);
 
     // Publishers
-    lift_pub_               = n_.advertise<rose21_platform::lift_state>("/lift_controller/lift/state", 1, true);
-    bumpers_pub_            = n_.advertise<rose21_platform::bumpers_state>("/lift_controller/bumpers/state", 1, true);
+    lift_pub_               = n_.advertise<rose_base_msgs::lift_state>("/lift_controller/lift/state", 1, true);
+    bumpers_pub_            = n_.advertise<rose_base_msgs::bumpers_state>("/lift_controller/bumpers/state", 1, true);
     bumpers2_pub_           = n_.advertise<contact_sensor_msgs::bumpers>("/lift_controller/bumpers2/state", 1, true);
 
     // Subscribers
@@ -144,7 +144,7 @@ LiftController::~LiftController()
 
 void LiftController::publishLiftState()
 {
-    rose21_platform::lift_state lift_state;
+    rose_base_msgs::lift_state lift_state;
     lift_state.target_position_percentage   = set_lift_position_percentage_;
     lift_state.position_percentage          = cur_position_percentage_;
     lift_state.moving                       = is_moving_;
@@ -157,7 +157,7 @@ void LiftController::publishLiftState()
 
 void LiftController::publishBumpersState()
 {
-    rose21_platform::bumpers_state bumpers_state;
+    rose_base_msgs::bumpers_state bumpers_state;
     bumpers_state.bumper_count    = 8;
     for(int i = 0; i < 8; i++)
         if(bumper_states_[i] == 1)
@@ -693,7 +693,7 @@ void LiftController::CB_SetControllerState(const std_msgs::Bool::ConstPtr& enabl
     }          
 }
 
-void LiftController::CB_LiftPositionRequest(const rose21_platform::lift_command::ConstPtr& lift_command)
+void LiftController::CB_LiftPositionRequest(const rose_base_msgs::lift_command::ConstPtr& lift_command)
 {
     setPose(lift_command->speed_percentage, 100.0 - lift_command->position_percentage); 
 }
