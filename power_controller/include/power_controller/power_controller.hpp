@@ -18,7 +18,7 @@
 #include <stdio.h>
 
 #include "rose_hardware_controller/hardware_controller.hpp"
-#include "rose21_platform/battery_state.h"
+#include "rose_base_msgs/battery_state.h"
 #include "std_msgs/Int32.h"
 
 #include "rose_common/common.hpp"

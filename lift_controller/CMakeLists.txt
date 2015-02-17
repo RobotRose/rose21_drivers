@@ -7,6 +7,13 @@ project(rose21_lift_controller)
 find_package(catkin REQUIRED COMPONENTS
 	roscpp
 	rose_transformations
+	rose_base_msgs
+	std_msgs
+	contact_sensor_msgs
+	roscomm
+	shared_variables
+	rose_hardware_controller
+	rose_hardware_comm
 	)
 
 catkin_package(

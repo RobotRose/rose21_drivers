@@ -19,9 +19,9 @@
 
 #include <ros/ros.h>
 
-#include "rose21_platform/lift_command.h"
-#include "rose21_platform/lift_state.h"
-#include "rose21_platform/bumpers_state.h"
+#include "rose_base_msgs/lift_command.h"
+#include "rose_base_msgs/lift_state.h"
+#include "rose_base_msgs/bumpers_state.h"
 #include "std_msgs/Bool.h"
 #include "contact_sensor_msgs/bumper.h"
 #include "contact_sensor_msgs/bumpers.h"
