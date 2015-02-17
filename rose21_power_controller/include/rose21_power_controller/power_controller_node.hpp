@@ -14,7 +14,7 @@
 #ifndef POWER_CONTROLLER_NODE_HPP
 #define POWER_CONTROLLER_NODE_HPP
 
-#include <power_controller/power_controller.hpp>
+#include <rose21_power_controller/power_controller.hpp>
 
 
 #endif // POWER_CONTROLLER_NODE_HPP

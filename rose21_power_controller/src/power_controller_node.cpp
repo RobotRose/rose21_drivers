@@ -10,7 +10,7 @@
 *   ROS driver power controller node
 * 
 ***********************************************************************************/
-#include <power_controller/power_controller_node.hpp>
+#include <rose21_power_controller/power_controller_node.hpp>
 
 int main(int argc, char *argv[])
 {

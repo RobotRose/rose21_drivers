@@ -11,7 +11,7 @@
 * 
 ***********************************************************************************/
 
-#include "lift_controller/lift_controller.hpp"
+#include "rose21_lift_controller/lift_controller.hpp"
 
 using namespace std;
 

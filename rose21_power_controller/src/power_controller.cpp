@@ -11,7 +11,7 @@
 * 
 ***********************************************************************************/
 
-#include <power_controller/power_controller.hpp>
+#include <rose21_power_controller/power_controller.hpp>
 
 
 PowerController::PowerController(string name, ros::NodeHandle n, string serial_port, int baudrate)
