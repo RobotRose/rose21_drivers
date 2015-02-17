@@ -29,7 +29,7 @@
 
 #include "shared_variables/shared_variable.hpp"
 
-#include "hardware_controller/hardware_controller.hpp"
+#include "rose_hardware_controller/hardware_controller.hpp"
 #include "serial/serial.hpp"
 
 
