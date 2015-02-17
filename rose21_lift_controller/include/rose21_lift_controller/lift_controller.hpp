@@ -30,7 +30,7 @@
 #include "shared_variables/shared_variable.hpp"
 
 #include "rose_hardware_controller/hardware_controller.hpp"
-#include "serial/serial.hpp"
+#include "rose_hardware_comm/serial.hpp"
 
 
 // Commands also see TXT specification file
