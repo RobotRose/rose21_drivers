@@ -2,13 +2,14 @@ cmake_minimum_required(VERSION 2.8.3)
 project(rose21_platform_controller)
 
 find_package(catkin REQUIRED COMPONENTS
+		odometry
 		operator_messaging
 		roscpp
 		rose_base_msgs
 		rose_common
+		rose_hardware_controller
 		rose_transformations
 		rose_watchdogs
-		rose_hardware_controller
 		server_multiple_client
 		shared_variables
 	)
@@ -20,14 +21,16 @@ catkin_package(
  LIBRARIES 
 
  CATKIN_DEPENDS
-	operator_messaging
-	roscpp
-	rose_base_msgs
-	rose_common
-	rose_transformations
-	rose_watchdogs
-	server_multiple_client
-	shared_variables
+		odometry
+		operator_messaging
+		roscpp
+		rose_base_msgs
+		rose_common
+		rose_hardware_controller
+		rose_transformations
+		rose_watchdogs
+		server_multiple_client
+		shared_variables
  DEPENDS 
 
 )
