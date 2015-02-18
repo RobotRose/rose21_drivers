@@ -19,7 +19,6 @@
 
 #include "rose_hardware_controller/hardware_controller.hpp"
 #include "rose_base_msgs/battery_state.h"
-#include "rose_base_msgs/bumpers_state.h"
 #include "std_msgs/Int32.h"
 
 #include "rose_common/common.hpp"
@@ -117,8 +116,8 @@ class PowerController : public HardwareController<Serial>
     bool update();
     bool completeUpdate();
 
-    rose_base_msgs::bumpers_state getBatteryState(int battery_number);
-    rose_base_msgs::bumpers_state getCombinedBatteryState();
+    rose_base_msgs::battery_state getBatteryState(int battery_number);
+    rose_base_msgs::battery_state getCombinedBatteryState();
     void publishBatteryStates();
 
     void showState();

@@ -24,9 +24,9 @@ PowerController::PowerController(string name, ros::NodeHandle n, string serial_p
     comm_interface_         = Serial(name, serial_port, baudrate);
 
     selected_battery_pub_       = n_.advertise<std_msgs::Int32>(name_ + "/selected_battery", 1, true);
-    battery1_state_pub_         = n_.advertise<rose_base_msgs::bumpers_state>(name_ + "/battery1/state", 1, true);
-    battery2_state_pub_         = n_.advertise<rose_base_msgs::bumpers_state>(name_ + "/battery2/state", 1, true);
-    battery_combined_state_pub_ = n_.advertise<rose_base_msgs::bumpers_state>(name_ + "/battery_combined/state", 1, true);
+    battery1_state_pub_         = n_.advertise<rose_base_msgs::battery_state>(name_ + "/battery1/state", 1, true);
+    battery2_state_pub_         = n_.advertise<rose_base_msgs::battery_state>(name_ + "/battery2/state", 1, true);
+    battery_combined_state_pub_ = n_.advertise<rose_base_msgs::battery_state>(name_ + "/battery_combined/state", 1, true);
 
     bat_warn_time_ = ros::Time::now();
 
@@ -238,10 +238,10 @@ bool PowerController::completeUpdate()
     return all_success;
 }
 
-rose_base_msgs::bumpers_state PowerController::getBatteryState(int battery_number)
+rose_base_msgs::battery_state PowerController::getBatteryState(int battery_number)
 {
     int index                       = battery_number - 1;
-    rose_base_msgs::bumpers_state battery_state;
+    rose_base_msgs::battery_state battery_state;
     battery_state.id                = battery_number;
     battery_state.empty_voltage     = ((float)minimal_voltage)/1000.0;
     battery_state.current_voltage   = ((float)battery_voltage_avg[index])/1000.0;
@@ -251,11 +251,11 @@ rose_base_msgs::bumpers_state PowerController::getBatteryState(int battery_numbe
     return battery_state;
 }
 
-rose_base_msgs::bumpers_state PowerController::getCombinedBatteryState()
+rose_base_msgs::battery_state PowerController::getCombinedBatteryState()
 {
-    rose_base_msgs::bumpers_state battery_combined_state;
-    rose_base_msgs::bumpers_state bat1 = getBatteryState(1);
-    rose_base_msgs::bumpers_state bat2 = getBatteryState(2);
+    rose_base_msgs::battery_state battery_combined_state;
+    rose_base_msgs::battery_state bat1 = getBatteryState(1);
+    rose_base_msgs::battery_state bat2 = getBatteryState(2);
 
     battery_combined_state.id                   = -1;
     battery_combined_state.empty_voltage        = fmin(bat1.empty_voltage, bat2.empty_voltage);
