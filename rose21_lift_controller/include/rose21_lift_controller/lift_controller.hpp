@@ -84,7 +84,6 @@
 #define LIFT_CONTROLLER_MAX_LIFT_SPEED                         220         // [0-255]
 
 using namespace std;
-using namespace rose21_platform;
 using namespace shared_variables;
 
 class LiftController : public HardwareController<Serial>

@@ -117,7 +117,6 @@
 #define VELOCITY_TIMEOUT                        0.5         // [s]
 
 using namespace std;
-using namespace rose21_platform;
 using namespace shared_variables;
 
 class PlatformController : public HardwareController<Serial>
