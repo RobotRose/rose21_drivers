@@ -29,6 +29,8 @@ catkin_package(
 
 )
 
+set(CMAKE_CXX_FLAGS "-std=c++0x -g") #! @todo OH [IMPR]: Remove -g flag in release?
+
 include_directories( include ${catkin_INCLUDE_DIRS} )
 
 add_executable( rose21_power_controller 	

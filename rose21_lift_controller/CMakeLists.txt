@@ -33,6 +33,8 @@ catkin_package(
 
 )
 
+set(CMAKE_CXX_FLAGS "-std=c++0x -g") #! @todo OH [IMPR]: Remove -g flag in release?
+
 add_executable( lift_controller 	
 					src/lift_controller_node.cpp
 					src/lift_controller.cpp
