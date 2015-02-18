@@ -19,12 +19,12 @@
 
 using namespace std;
 
-WheelController::WheelController(string name, ros::NodeHandle n, string serial_port, int baudrate)
+PlatformController::PlatformController(string name, ros::NodeHandle n, string serial_port, int baudrate)
 	: HardwareController<Serial>()
     , sh_platform_controller_alarm_(SharedVariable<bool>("platform_controller_alarm"))
     , sh_platform_controller_reset_(SharedVariable<bool>("platform_controller_reset"))
     , sh_emergency_(SharedVariable<bool>("emergency"))
-    , velocity_watchdog_("platform_controller_velocity_watchdog", n, VELOCITY_TIMEOUT, boost::bind(&WheelController::CB_cancelAllMovements, this))
+    , velocity_watchdog_("platform_controller_velocity_watchdog", n, VELOCITY_TIMEOUT, boost::bind(&PlatformController::CB_cancelAllMovements, this))
 {
     n_           	= n;
     name_       	= name;
@@ -46,7 +46,7 @@ WheelController::WheelController(string name, ros::NodeHandle n, string serial_p
 
     reset_tries_                    = 0;
 
-    smc_ = new SMC(n_, name_, boost::bind(&WheelController::CB_WheelUnitStatesRequest, this, _1, _2));
+    smc_ = new SMC(n_, name_, boost::bind(&PlatformController::CB_WheelUnitStatesRequest, this, _1, _2));
     smc_->startServer();
 
     // Publishers
@@ -67,13 +67,13 @@ WheelController::WheelController(string name, ros::NodeHandle n, string serial_p
     ROS_DEBUG_NAMED(ROS_NAME, "Started %s, will use serial connection [%s:%d]", name_.c_str(), serial_port.c_str(), baudrate);  
 }
 
-WheelController::~WheelController()
+PlatformController::~PlatformController()
 {
 	disable();
 	ROS_INFO_NAMED(ROS_NAME, "Stopped %s", name_.c_str());
 }
 
-bool WheelController::update()
+bool PlatformController::update()
 {
     // Do not try to update as long as the emercency button is pressed
     if(sh_emergency_)
@@ -128,7 +128,7 @@ bool WheelController::update()
     return true;
 }
 
-bool WheelController::alarmStateOk()
+bool PlatformController::alarmStateOk()
 {
     // Check if we want to reset the alarm state
     if(sh_platform_controller_reset_)
@@ -208,7 +208,7 @@ bool WheelController::alarmStateOk()
 }
 
 
-bool WheelController::enable()
+bool PlatformController::enable()
 {
 	if(enabled_)
 		return true;
@@ -316,7 +316,7 @@ bool WheelController::enable()
     return true;
 }
 
-bool WheelController::disable()
+bool PlatformController::disable()
 {
     if(enabled_)
     {
@@ -360,13 +360,13 @@ bool WheelController::disable()
     return true;
 }
 
-bool WheelController::forceReset()
+bool PlatformController::forceReset()
 {
     reset_tries_ = 0;
     return reset(true);
 }
 
-bool WheelController::reset(bool force_reset)
+bool PlatformController::reset(bool force_reset)
 {
     
     // reset_tries_ DISABLED!
@@ -426,7 +426,7 @@ bool WheelController::reset(bool force_reset)
     return false;
 }
 
-bool WheelController::isEnabled(string performing_action)
+bool PlatformController::isEnabled(string performing_action)
 {
     if(!enabled_ && reset_tries_ >= MAX_RESET_TRIES)
         ROS_WARN_THROTTLE_NAMED(10.0, ROS_NAME, "Platform controller is disabled while %s, consider force resetting.", performing_action.c_str());
@@ -434,7 +434,7 @@ bool WheelController::isEnabled(string performing_action)
 	return enabled_;
 }
 
-bool WheelController::stopAllWheels()
+bool PlatformController::stopAllWheels()
 {
 	for(auto& wheelunit : wheelunits_)
 		wheelunit.setVelocityRadPerSec(0.0);
@@ -442,12 +442,12 @@ bool WheelController::stopAllWheels()
 	return writeWheelStates();
 }
 
-bool WheelController::resetLowLevel()
+bool PlatformController::resetLowLevel()
 {
     return simpleCommand(PLATFORM_CONTROLLER_RESET_PLATFORM, HARDWARE_CONTROL_TIMEOUT);
 }
 
-bool WheelController::resetLowLevelSafety()
+bool PlatformController::resetLowLevelSafety()
 {
     sh_platform_controller_alarm_   = false;
     alarm_number_                   = 0;
@@ -455,12 +455,12 @@ bool WheelController::resetLowLevelSafety()
     return simpleCommand(PLATFORM_CONTROLLER_RESET_ALARM, HARDWARE_CONTROL_TIMEOUT);
 }
 
-bool WheelController::resetLowLevelCommunication()
+bool PlatformController::resetLowLevelCommunication()
 {
     return simpleCommand(PLATFORM_CONTROLLER_RESET_COMM, HARDWARE_CONTROL_TIMEOUT);
 }
 
-bool WheelController::setDrivePIDs(	int Ki, 
+bool PlatformController::setDrivePIDs(	int Ki, 
 									int K, 
                                     int Kp, 
 									int Kd, 
@@ -504,7 +504,7 @@ bool WheelController::setDrivePIDs(	int Ki,
     return executeCommand(command);
 }
 
-bool WheelController::setSteerPIDs(	int Ki, 
+bool PlatformController::setSteerPIDs(	int Ki, 
 									int K, 
                                     int Kp, 
 									int Kd, 
@@ -548,7 +548,7 @@ bool WheelController::setSteerPIDs(	int Ki,
     return executeCommand(command);
 }
 
-bool WheelController::setErrorTresholds(const unsigned int& following_err_timer,              
+bool PlatformController::setErrorTresholds(const unsigned int& following_err_timer,              
                                         const unsigned int& current_err_timer,
                                         const unsigned int& connection_err_timer,
                                         const unsigned int& mae_err_timer)
@@ -569,7 +569,7 @@ bool WheelController::setErrorTresholds(const unsigned int& following_err_timer,
 }
 
 // The start stop values are the values of error when the forward movement is started/stopped when rotating while driving
-bool WheelController::setStartStopValues(int start_value_low_level, int stop_value_low_level)
+bool PlatformController::setStartStopValues(int start_value_low_level, int stop_value_low_level)
 {
     ROS_DEBUG_NAMED(ROS_NAME, "Setting start/stop rotation error limits to: %d/%d.", start_value_low_level, stop_value_low_level);
     ControllerResponse response(PLATFORM_CONTROLLER_START_STOP_VALS, HARDWARE_CONTROL_TIMEOUT);
@@ -584,7 +584,7 @@ bool WheelController::setStartStopValues(int start_value_low_level, int stop_val
     return true;
 }
 
-bool WheelController::setActiveBrakeMode(bool active_brake)
+bool PlatformController::setActiveBrakeMode(bool active_brake)
 {
 
     int active_brake_lowlevel_param = 1;
@@ -603,7 +603,7 @@ bool WheelController::setActiveBrakeMode(bool active_brake)
 }
 
 
-bool WheelController::getWheelUnitDrivePosition(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitDrivePosition(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting wheelunit drive position"))
         return false;
@@ -627,7 +627,7 @@ bool WheelController::getWheelUnitDrivePosition(WheelUnit& wheelunit)
     return true;
 }
 
-bool WheelController::getAllWheelUnitDriveEncoderSpeeds()
+bool PlatformController::getAllWheelUnitDriveEncoderSpeeds()
 {    
     if(!isEnabled("getting all wheelunits encoder speeds"))
         return false;
@@ -675,7 +675,7 @@ bool WheelController::getAllWheelUnitDriveEncoderSpeeds()
     return true;
 }
 
-bool WheelController::getWheelUnitSteerVelocity(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitSteerVelocity(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting wheelunit steer velocity"))
         return false;
@@ -697,7 +697,7 @@ bool WheelController::getWheelUnitSteerVelocity(WheelUnit& wheelunit)
     return true;
 }
 
-bool WheelController::getWheelUnitSteerPosition(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitSteerPosition(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting wheelunit steer position"))
         return false;
@@ -717,7 +717,7 @@ bool WheelController::getWheelUnitSteerPosition(WheelUnit& wheelunit)
     return true;
 }
 
-bool WheelController::getWheelUnitVelocityError(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitVelocityError(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting wheelunit velocity error"))
         return false;
@@ -735,7 +735,7 @@ bool WheelController::getWheelUnitVelocityError(WheelUnit& wheelunit)
         return false;  
 }
 
-bool WheelController::getWheelUnitPositionError(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitPositionError(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting wheelunit postion error"))
         return false;
@@ -755,7 +755,7 @@ bool WheelController::getWheelUnitPositionError(WheelUnit& wheelunit)
     return true;
 }
 
-bool WheelController::getWheelUnitPIDOut(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitPIDOut(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting wheelunit PID output signal"))
         return false;
@@ -784,7 +784,7 @@ bool WheelController::getWheelUnitPIDOut(WheelUnit& wheelunit)
     return true;    
 }
 
-bool WheelController::getWheelUnitPOut(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitPOut(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting P output signal"))
         return false;
@@ -813,7 +813,7 @@ bool WheelController::getWheelUnitPOut(WheelUnit& wheelunit)
     return true;    
 }
 
-bool WheelController::getWheelUnitIOut(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitIOut(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting I output signal"))
         return false;
@@ -842,7 +842,7 @@ bool WheelController::getWheelUnitIOut(WheelUnit& wheelunit)
     return true;    
 }
 
-bool WheelController::getWheelUnitDOut(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitDOut(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting D output signal"))
         return false;
@@ -871,7 +871,7 @@ bool WheelController::getWheelUnitDOut(WheelUnit& wheelunit)
     return true;    
 }
 
-bool WheelController::getWheelUnitMAE(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitMAE(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting MAE value"))
         return false;
@@ -891,7 +891,7 @@ bool WheelController::getWheelUnitMAE(WheelUnit& wheelunit)
     return true;    
 }
 
-bool WheelController::getWheelUnitFE(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitFE(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting following error"))
         return false;
@@ -911,7 +911,7 @@ bool WheelController::getWheelUnitFE(WheelUnit& wheelunit)
     return true;    
 }
 
-bool WheelController::getWheelUnitDriveCurrent(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitDriveCurrent(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting wheelunit drive current"))
         return false;
@@ -931,7 +931,7 @@ bool WheelController::getWheelUnitDriveCurrent(WheelUnit& wheelunit)
     return true;    
 }
 
-bool WheelController::getWheelUnitSteerCurrent(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitSteerCurrent(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting wheelunit steer current"))
         return false;
@@ -951,7 +951,7 @@ bool WheelController::getWheelUnitSteerCurrent(WheelUnit& wheelunit)
     return true;    
 }
 
-bool WheelController::getWheelUnitMaxDriveCurrent(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitMaxDriveCurrent(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting wheelunit maximal drive current"))
         return false;
@@ -971,7 +971,7 @@ bool WheelController::getWheelUnitMaxDriveCurrent(WheelUnit& wheelunit)
     return true;    
 }
 
-bool WheelController::getWheelUnitMaxSteerCurrent(WheelUnit& wheelunit)
+bool PlatformController::getWheelUnitMaxSteerCurrent(WheelUnit& wheelunit)
 {
     if(!isEnabled("getting wheelunit maximal steer current"))
         return false;
@@ -991,7 +991,7 @@ bool WheelController::getWheelUnitMaxSteerCurrent(WheelUnit& wheelunit)
     return true;    
 }
 
-bool WheelController::getWheelUnitsDebugStates()
+bool PlatformController::getWheelUnitsDebugStates()
 {
     if(!isEnabled("getting complete debug status"))
         return false;
@@ -1069,7 +1069,7 @@ bool WheelController::getWheelUnitsDebugStates()
 
 // alarm = 1 if there is an alarm, 0 if no alarm. 
 // alarm_number then indicates which alarm
-bool WheelController::getAlarmStatus()
+bool PlatformController::getAlarmStatus()
 {
     if(!isEnabled("getting alarm state"))
         return false;
@@ -1097,7 +1097,7 @@ bool WheelController::getAlarmStatus()
     return true;    
 }    
 
-bool WheelController::getStatus()
+bool PlatformController::getStatus()
 {
     if(!isEnabled("getting status report"))
         return false;
@@ -1166,12 +1166,12 @@ bool WheelController::getStatus()
     return true;    
 }
 
-vector<WheelUnit>& WheelController::getWheelUnits()
+vector<WheelUnit>& PlatformController::getWheelUnits()
 {
 	return wheelunits_;
 }
 
-bool WheelController::sendWheelState()
+bool PlatformController::sendWheelState()
 {
      // If we have an alarm state, return false
     if(sh_platform_controller_alarm_)
@@ -1184,7 +1184,7 @@ bool WheelController::sendWheelState()
     return writeWheelStates();
 }
 
-bool WheelController::writeWheelStates()
+bool PlatformController::writeWheelStates()
 {
     WheelUnit wheelunit;
     ControllerResponse  response = *new ControllerResponse(PLATFORM_CONTROLLER_MOVE, HARDWARE_CONTROL_TIMEOUT);
@@ -1215,7 +1215,7 @@ bool WheelController::writeWheelStates()
     return true;
 }
 
-void WheelController::publishWheelUnitStates()
+void PlatformController::publishWheelUnitStates()
 {
 
     //! @todo OH: HACK HARD CODED INDEXES!
@@ -1276,7 +1276,7 @@ void WheelController::publishWheelUnitStates()
 }
 
 
-void WheelController::publishWheelUnitTransforms()
+void PlatformController::publishWheelUnitTransforms()
 {
     // Set broadcasts
     wheelunit_transformers_.at("FR").setTransform(0.0, 0.0, -(wheelunits_[0].getMeasuredAngleRad()), 0.58/2.0, -0.48/2.0, 0.0);
@@ -1291,7 +1291,7 @@ void WheelController::publishWheelUnitTransforms()
     }
 }
 
-void WheelController::CB_WheelUnitStatesRequest(const rose_base_msgs::wheelunit_statesGoalConstPtr& goal, SMC* smc)
+void PlatformController::CB_WheelUnitStatesRequest(const rose_base_msgs::wheelunit_statesGoalConstPtr& goal, SMC* smc)
 {
     // Do not try to update as long as the emercency button is pressed
     if(sh_emergency_)
@@ -1336,7 +1336,7 @@ void WheelController::CB_WheelUnitStatesRequest(const rose_base_msgs::wheelunit_
     }
 }
 
-void WheelController::CB_cancelAllMovements()
+void PlatformController::CB_cancelAllMovements()
 {
     velocity_watchdog_.stop();
 
@@ -1364,12 +1364,12 @@ void WheelController::CB_cancelAllMovements()
     sh_emergency_ = true;
 }
 
-bool WheelController::stopWritten()
+bool PlatformController::stopWritten()
 {
     return setAnglesZero() and setVelocitiesZero();
 }
 
-bool WheelController::setAnglesZero()
+bool PlatformController::setAnglesZero()
 {
     for(int i = 0; i < 4; i++)
     {
@@ -1380,7 +1380,7 @@ bool WheelController::setAnglesZero()
     return true; 
 }
 
-bool WheelController::setVelocitiesZero()
+bool PlatformController::setVelocitiesZero()
 {
     for(int i = 0; i < 4; i++)
     {
