@@ -14,8 +14,8 @@
 #include "rose21_platform_controller/platform_controller_node.hpp"
 
 /**\defgroup platform_controller_node Platform controller node
- * \relates PlatformContoller
- * Main function of the platform_controller node. Create a PlatformContoller object and calls spinning code.
+ * \relates PlatformController
+ * Main function of the platform_controller node. Create a PlatformController object and calls spinning code.
  * Use keys for simple manual control:
  *  \arg \b + Increase linear y-velocity
  *  \arg \b - Decrease linear y-velocity 
@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
     if(test)
     	ROS_INFO_NAMED(ROS_NAME, "Test mode enabled.");
 
-	PlatformContoller* platform_controller = new PlatformContoller("platform_controller", n, serial_port, baudrate);
+	PlatformController* platform_controller = new PlatformController("platform_controller", n, serial_port, baudrate);
 	if(!platform_controller->enable())
 	{
 		ROS_ERROR_NAMED(ROS_NAME, "Could not enable platform controller.");
