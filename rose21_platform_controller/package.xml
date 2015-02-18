@@ -15,6 +15,7 @@
   <build_depend>roscpp</build_depend>
   <build_depend>rose_base_msgs</build_depend>
   <build_depend>rose_common</build_depend>
+  <build_depend>rose_hardware_controller</build_depend>
   <build_depend>rose_transformations</build_depend>
   <build_depend>rose_transformations</build_depend>
   <build_depend>rose_watchdogs</build_depend>
@@ -26,6 +27,7 @@
   <run_depend>roscpp</run_depend>
   <run_depend>rose_base_msgs</run_depend>
   <run_depend>rose_common</run_depend>
+  <run_depend>rose_hardware_controller</run_depend>
   <run_depend>rose_transformations</run_depend>
   <run_depend>rose_transformations</run_depend>
   <run_depend>rose_watchdogs</run_depend>
