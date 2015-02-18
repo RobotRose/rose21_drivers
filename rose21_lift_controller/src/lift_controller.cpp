@@ -32,7 +32,7 @@ LiftController::LiftController(string name, ros::NodeHandle n, string serial_por
 
     // Subscribers
     lift_controller_enable_sub_  = n_.subscribe("/lift_controller/enabled", 1, &LiftController::CB_SetControllerState, this);
-    lift_position_request_sub_   = n_.subscribe("/lift_controller/lift/position_request", 1, &LiftController::CB_LiftPositionRequest, this);
+    lift_position_request_sub_   = n_.subscribe("/lift_controller/lift/command", 1, &LiftController::CB_LiftPositionRequest, this);
 
     sh_emergency_.host(false);
     sh_emergency_ = false;
