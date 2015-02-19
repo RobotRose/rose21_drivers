@@ -11,7 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
 		rose_transformations
 		rose_watchdogs
 		server_multiple_client
-		shared_variables
+		rose_shared_variables
 	)
 
 
@@ -30,7 +30,7 @@ catkin_package(
 		rose_transformations
 		rose_watchdogs
 		server_multiple_client
-		shared_variables
+		rose_shared_variables
  DEPENDS 
 
 )

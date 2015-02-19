@@ -27,7 +27,7 @@
 #include "contact_sensor_msgs/bumpers.h"
 #include "roscomm/conversion_bool.hpp"
 
-#include "shared_variables/shared_variable.hpp"
+#include "rose_shared_variables/shared_variable.hpp"
 
 #include "rose_hardware_controller/hardware_controller.hpp"
 #include "rose_hardware_comm/serial.hpp"
@@ -84,7 +84,7 @@
 #define LIFT_CONTROLLER_MAX_LIFT_SPEED                         220         // [0-255]
 
 using namespace std;
-using namespace shared_variables;
+using namespace rose_shared_variables;
 
 class LiftController : public HardwareController<Serial>
 {

@@ -23,7 +23,7 @@
 
 #include "rose_common/common.hpp"
  
-#include "shared_variables/shared_variable.hpp"
+#include "rose_shared_variables/shared_variable.hpp"
 
 #include "operator_messaging/operator_messaging.hpp"
 
@@ -100,7 +100,7 @@
 #define GUI_BAT_WARNING_PRECENTAGE              10.0        // [%]
 #define GUI_BAT_WARNING_INTERVAL                10.0        // [s]
 
-using namespace shared_variables;
+using namespace rose_shared_variables;
 
 class PowerController : public HardwareController<Serial>
 {

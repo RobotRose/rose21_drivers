@@ -31,7 +31,7 @@
  
 #include "server_multiple_client/server_multiple_client.hpp"
 #include "operator_messaging/operator_messaging.hpp"
-#include "shared_variables/shared_variable.hpp"
+#include "rose_shared_variables/shared_variable.hpp"
 #include "action_result_message.hpp"
 
 #include "rose_base_msgs/wheelunit_states.h"
@@ -117,7 +117,7 @@
 #define VELOCITY_TIMEOUT                        0.5         // [s]
 
 using namespace std;
-using namespace shared_variables;
+using namespace rose_shared_variables;
 
 class PlatformController : public HardwareController<Serial>
 {
