@@ -111,7 +111,7 @@
 #define PLATFORM_CONTROLLER_FIRMWARE_MAJOR_VERSION    2
 #define PLATFORM_CONTROLLER_FIRMWARE_MINOR_VERSION    4
 
-// Wheel_controller defines
+// platform_controller defines
 #define MAX_RESET_TRIES                         5           // DISABLED, see reset function
 #define RESET_INTERVAL                          2.0
 #define VELOCITY_TIMEOUT                        0.5         // [s]
