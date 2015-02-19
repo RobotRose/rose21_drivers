@@ -37,12 +37,12 @@ set(CMAKE_CXX_FLAGS "-std=c++0x -g") #! @todo OH [IMPR]: Remove -g flag in relea
 
 include_directories( include ${catkin_INCLUDE_DIRS} )
 
-add_executable( lift_controller 	
+add_executable( rose21_lift_controller 	
 					src/lift_controller_node.cpp
 					src/lift_controller.cpp
 )
 						
 
-add_dependencies( lift_controller ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
+add_dependencies( rose21_lift_controller ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
 
-target_link_libraries( lift_controller ${catkin_LIBRARIES} )
+target_link_libraries( rose21_lift_controller ${catkin_LIBRARIES} )
