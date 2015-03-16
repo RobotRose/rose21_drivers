@@ -115,7 +115,7 @@ bool PlatformController::update()
 
     if( not alarmStateOk() )
     {
-        // If we where persuing a goal wheel state we have to abort at this point.
+        // If we where pursuing a goal wheel state we have to abort at this point.
         smc_->abort();
 
         return false;
@@ -351,7 +351,7 @@ bool PlatformController::disable()
     // Stop watching for responses   
     stopReadloop();
 
-    // Disconnect communitcation interface
+    // Disconnect communication interface
     comm_interface_.disconnect();
 
     // Force locally disabled
