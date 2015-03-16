@@ -8,7 +8,7 @@
 *
 * Description:
 *	Controller that communicates using a Serial interface with the propeller that 
-* 	contols the wheels. It accepts wheel speeds and orientations and sends it to the
+* 	controls the wheels. It accepts wheel speeds and orientations and sends it to the
 * 	wheels.
 * 
 ***********************************************************************************/
@@ -37,7 +37,7 @@ PlatformController::PlatformController(string name, ros::NodeHandle n, string se
     // Host mutable, non-published reset boolean
     sh_platform_controller_reset_.host(false, false);
 
-    // Connect to state of emercency
+    // Connect to state of emergency
     sh_emergency_.connect(ros::Duration(0.1));
 
     sh_platform_controller_alarm_   = false;
@@ -75,7 +75,7 @@ PlatformController::~PlatformController()
 
 bool PlatformController::update()
 {
-    // Do not try to update as long as the emercency button is pressed
+    // Do not try to update as long as the emergency button is pressed
     if(sh_emergency_)
     {
         ROS_WARN_THROTTLE_NAMED(5.0, ROS_NAME, "Emergency button pressed, not updating wheelunit states.");        
@@ -101,7 +101,7 @@ bool PlatformController::update()
         return false;
     }
 
-    // Update and publish the wheelunit states if succesfull
+    // Update and publish the wheelunit states if successful
     if(!getStatus())
         return false;
 
@@ -392,7 +392,7 @@ bool PlatformController::reset(bool force_reset)
     disable();
     if(enable())
     {
-        ROS_INFO_NAMED(ROS_NAME, "Resetting platform controller succesfull (%d/%d).", reset_tries_, MAX_RESET_TRIES);
+        ROS_INFO_NAMED(ROS_NAME, "Resetting platform controller successful (%d/%d).", reset_tries_, MAX_RESET_TRIES);
         operator_gui.message("Herstart platform aansturing succesvol.");
         if(getStatus())
         {
@@ -414,13 +414,13 @@ bool PlatformController::reset(bool force_reset)
 
     if(reset_tries_ < MAX_RESET_TRIES)
     {
-        ROS_ERROR_NAMED(ROS_NAME, "Resetting platform controller unsuccesfull (%d/%d), retrying in %.2fs.", reset_tries_, MAX_RESET_TRIES, (float)reset_tries_);
+        ROS_ERROR_NAMED(ROS_NAME, "Resetting platform controller unsuccessful (%d/%d), retrying in %.2fs.", reset_tries_, MAX_RESET_TRIES, (float)reset_tries_);
         ros::Duration((float)reset_tries_).sleep();
     }
     else
     {
         operator_gui.warn("Herstart platform aansturing niet gelukt.");
-        ROS_ERROR_NAMED(ROS_NAME, "Resetting platform controller unsuccesfull (%d/%d), disabling platform controller.", reset_tries_, MAX_RESET_TRIES);
+        ROS_ERROR_NAMED(ROS_NAME, "Resetting platform controller unsuccessful (%d/%d), disabling platform controller.", reset_tries_, MAX_RESET_TRIES);
     }   
 
     return false;
@@ -1205,11 +1205,11 @@ bool PlatformController::writeWheelStates()
         return false;    
     }
 
-    // Stop the watchdog if we succesfully have written a stop command
+    // Stop the watchdog if we successfully have written a stop command
     if(stopWritten())
         velocity_watchdog_.stop();
 
-    // Store this succesfully written state
+    // Store this successfully written state
     prev_wheelunits_ = wheelunits_;
 
     return true;
@@ -1293,7 +1293,7 @@ void PlatformController::publishWheelUnitTransforms()
 
 void PlatformController::CB_WheelUnitStatesRequest(const rose_base_msgs::wheelunit_statesGoalConstPtr& goal, SMC* smc)
 {
-    // Do not try to update as long as the emercency button is pressed
+    // Do not try to update as long as the emergency button is pressed
     if(sh_emergency_)
     {
         ROS_WARN_THROTTLE_NAMED(5.0, ROS_NAME, "Emergency button pressed, not updating wheelunit states.");        
@@ -1354,12 +1354,12 @@ void PlatformController::CB_cancelAllMovements()
     int retries = 2;
     for(int i = 0; i < retries; i++)
     {
-        // If succesfully written the written the wheelstate, return
+        // If successfully written the written the wheelstate, return
         if(sendWheelState())
             return;
     }
 
-    // If not succesfull, raise the emergency state
+    // If not successful, raise the emergency state
     ROS_WARN_NAMED(ROS_NAME, "Could not stop wheels on watchdog, raising the emergency state.");
     sh_emergency_ = true;
 }
