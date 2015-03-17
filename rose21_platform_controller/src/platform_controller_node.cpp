@@ -38,27 +38,12 @@ int main(int argc, char *argv[])
 	FILE * pid_log_steer = NULL;
 	auto time_start_sec  = ros::Time::now().toSec();
 
-	// Retrieve port and baudrate parameters
-	string serial_port    = "";
-    int baudrate          = 0;
     bool test 			  = false;
-    if(!n_private.getParam("serial_port", serial_port))
-    {
-    	ROS_ERROR_NAMED(ROS_NAME, "Parameter serial_port must be specified.");
-    	return 1;
-    }
-
-    if(!n_private.getParam("baudrate", baudrate))
-	{
-    	ROS_ERROR_NAMED(ROS_NAME, "Parameter baudrate must be specified.");
-    	return 1;
-    }
-
     n_private.getParam("test", test);
     if(test)
     	ROS_INFO_NAMED(ROS_NAME, "Test mode enabled.");
 
-	PlatformController* platform_controller = new PlatformController("platform_controller", n, serial_port, baudrate);
+	PlatformController* platform_controller = new PlatformController();
 	if(!platform_controller->enable())
 	{
 		ROS_ERROR_NAMED(ROS_NAME, "Could not enable platform controller.");

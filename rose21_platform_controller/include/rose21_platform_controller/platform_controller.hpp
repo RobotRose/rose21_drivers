@@ -80,33 +80,8 @@
 #define PLATFORM_CONTROLLER_RESET_ALARM               "404"            
 #define PLATFORM_CONTROLLER_RESET_PLATFORM            "405"
     
-// PID values   
-#define PLATFORM_CONTROLLER_DRIVE_KI               2000            // Division factor, but zero turns off!
-#define PLATFORM_CONTROLLER_DRIVE_K                2000        //18000   // Division factor, but zero turns off!
-#define PLATFORM_CONTROLLER_DRIVE_KD               -1000            // Division factor, but zero turns off!
-#define PLATFORM_CONTROLLER_DRIVE_KP               0               // Velocity error to acceleration error factor
-#define PLATFORM_CONTROLLER_DRIVE_ILIMIT           5000000
-#define PLATFORM_CONTROLLER_DRIVE_SCALE            1000
-#define PLATFORM_CONTROLLER_DRIVE_FEMAX            8
-#define PLATFORM_CONTROLLER_DRIVE_MAX_CURR         5000
-    
-#define PLATFORM_CONTROLLER_STEER_KI               1000000         // Division factor, but zero turns off!
-#define PLATFORM_CONTROLLER_STEER_K                400             // Division factor, but zero turns off!
-#define PLATFORM_CONTROLLER_STEER_KD               0               // NOT IMPLEMENTED FOR STEER MOTORS
-#define PLATFORM_CONTROLLER_STEER_KP               0               // NOT USED
-#define PLATFORM_CONTROLLER_STEER_ILIMIT           10000000
-#define PLATFORM_CONTROLLER_STEER_SCALE            100       
-#define PLATFORM_CONTROLLER_STEER_FEMAX            6000
-#define PLATFORM_CONTROLLER_STEER_MAX_CURR         6000
-
-// Error timers in ms
-#define PLATFORM_CONTROLLER_FOLLOWING_ERR_TIMER    2000
-#define PLATFORM_CONTROLLER_CURRENT_ERR_TIMER      100
-#define PLATFORM_CONTROLLER_CONNECTION_ERR_TIMER   400
-#define PLATFORM_CONTROLLER_MAE_ERR_TIMER          75
-
 // Generic platform defines
-#define PLATFORM_CONTROLLER_CLK_FREQ               80000000.0      // [Hz] -> 80Mhz
+#define PLATFORM_CONTROLLER_CLK_FREQ                  80000000.0      // [Hz] -> 80Mhz
 #define PLATFORM_CONTROLLER_FIRMWARE_ID               1
 #define PLATFORM_CONTROLLER_FIRMWARE_MAJOR_VERSION    2
 #define PLATFORM_CONTROLLER_FIRMWARE_MINOR_VERSION    4
@@ -114,7 +89,6 @@
 // platform_controller defines
 #define MAX_RESET_TRIES                         5           // DISABLED, see reset function
 #define RESET_INTERVAL                          2.0
-#define VELOCITY_TIMEOUT                        0.5         // [s]
 
 using namespace std;
 using namespace rose_shared_variables;
@@ -125,8 +99,10 @@ class PlatformController : public HardwareController<Serial>
     typedef ServerMultipleClient<rose_base_msgs::wheelunit_statesAction> SMC;
 
   public:
-    PlatformController(string name, ros::NodeHandle n, string port_name, int baudrate);
+    PlatformController();
     ~PlatformController();
+
+    void    loadParameters();
 
     bool    update();
     bool    alarmStateOk();
@@ -208,6 +184,35 @@ class PlatformController : public HardwareController<Serial>
     bool    setAnglesZero();
     bool    setVelocitiesZero();
 
+  private:
+    int         baud_rate_;
+    std::string serial_port_;
+
+    int drive_ki_;
+    int drive_k_;
+    int drive_kd_;
+    int drive_kp_;
+    int drive_i_limit_;
+    int drive_scale_factor_;
+    int drive_following_err_max_;
+    int drive_max_current_;
+
+    int steer_ki_;
+    int steer_k_;
+    int steer_kd_;
+    int steer_kp_;
+    int steer_i_limit_;
+    int steer_scale_factor_;
+    int steer_following_err_max_;
+    int steer_max_current_;
+
+    int following_timeout_;
+    int current_timeout_;
+    int connection_timeout_;
+    int abs_encoder_timeout_;
+
+    ros::NodeHandle         n_;
+    std::string             name_;
     ros::Publisher          wheelunit_states_pub_;
     vector<WheelUnit>       wheelunits_;
     vector<WheelUnit>       prev_wheelunits_;
