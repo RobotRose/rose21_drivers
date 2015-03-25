@@ -8,7 +8,7 @@
 *
 * Description:
 *	Controller that communicates using a Serial interface with the propeller that 
-* 	contols the wheels. It accepts wheel speeds and orientations and sends it to the
+* 	controls the wheels. It accepts wheel speeds and orientations and sends it to the
 * 	wheels.
 * 
 ***********************************************************************************/
@@ -19,17 +19,21 @@
 
 using namespace std;
 
-PlatformController::PlatformController(string name, ros::NodeHandle n, string serial_port, int baudrate)
+PlatformController::PlatformController()
 	: HardwareController<Serial>()
+    , n_(ros::NodeHandle())
+    , name_(ros::this_node::getName())
     , sh_platform_controller_alarm_(SharedVariable<bool>("platform_controller_alarm"))
     , sh_platform_controller_reset_(SharedVariable<bool>("platform_controller_reset"))
     , sh_emergency_(SharedVariable<bool>("emergency"))
-    , velocity_watchdog_("platform_controller_velocity_watchdog", n, VELOCITY_TIMEOUT, boost::bind(&PlatformController::CB_cancelAllMovements, this))
+    , velocity_watchdog_("platform_controller_velocity_watchdog", boost::bind(&PlatformController::CB_cancelAllMovements, this))
 {
-    n_           	= n;
-    name_       	= name;
-    enabled_ 	 	= false;
-    comm_interface_	= Serial(name_, serial_port, baudrate);
+    enabled_        = false;
+    
+    // Load the configurable parameters
+    loadParameters();
+
+    comm_interface_	= Serial(name_, serial_port_, baud_rate_);
 
     // Host read-only, published alarm state, max publish rate is 10 hz
     sh_platform_controller_alarm_.host(false, true, ros::Rate(10.0));
@@ -37,7 +41,7 @@ PlatformController::PlatformController(string name, ros::NodeHandle n, string se
     // Host mutable, non-published reset boolean
     sh_platform_controller_reset_.host(false, false);
 
-    // Connect to state of emercency
+    // Connect to state of emergency
     sh_emergency_.connect(ros::Duration(0.1));
 
     sh_platform_controller_alarm_   = false;
@@ -50,7 +54,7 @@ PlatformController::PlatformController(string name, ros::NodeHandle n, string se
     smc_->startServer();
 
     // Publishers
-    wheelunit_states_pub_    = n.advertise<rose_base_msgs::wheelunit_states>("/platform_controller/wheelunit_states", 1);
+    wheelunit_states_pub_    = n_.advertise<rose_base_msgs::wheelunit_states>("/platform_controller/wheelunit_states", 1);
 
     // Add Wheelunits to the map
     wheelunits_.push_back( WheelUnit("FR", 0) );
@@ -64,7 +68,7 @@ PlatformController::PlatformController(string name, ros::NodeHandle n, string se
     wheelunit_transformers_.insert(std::pair<string, TFHelper>("BR",  TFHelper("BR", n_, "/base_link", "BR")));
     wheelunit_transformers_.insert(std::pair<string, TFHelper>("BL",  TFHelper("BL", n_, "/base_link", "BL")));
 
-    ROS_DEBUG_NAMED(ROS_NAME, "Started %s, will use serial connection [%s:%d]", name_.c_str(), serial_port.c_str(), baudrate);  
+    ROS_DEBUG_NAMED(ROS_NAME, "Started %s, will use serial connection [%s:%d]", name_.c_str(), serial_port_.c_str(), baud_rate_);  
 }
 
 PlatformController::~PlatformController()
@@ -73,9 +77,44 @@ PlatformController::~PlatformController()
 	ROS_INFO_NAMED(ROS_NAME, "Stopped %s", name_.c_str());
 }
 
+void PlatformController::loadParameters()
+{
+    // Get a private nodehandle to load the configurable parameters
+    ros::NodeHandle pn = ros::NodeHandle("~");
+
+    ROS_ASSERT_MSG(pn.getParam("serial_port", serial_port_), "Parameter serial_port must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("baud_rate", baud_rate_), "Parameter baud_rate must be specified.");
+
+    pn.param("control/drive/ki",                   drive_ki_,                   2000);      // Division factor, zero turns off.
+    pn.param("control/drive/k",                    drive_k_,                    2000);      // Division factor, zero turns off.
+    pn.param("control/drive/kd",                   drive_kd_,                   -1000);     // Division factor, zero turns off.
+    pn.param("control/drive/kp",                   drive_kp_,                   0);         // Velocity error to acceleration error factor
+    pn.param("control/drive/i_limit",              drive_i_limit_,              5000000);   // absolute integration limit
+    pn.param("control/drive/scale_factor",         drive_scale_factor_,         1000); 
+    pn.param("control/drive/following_error_max",  drive_following_err_max_,    8);
+    pn.param("control/drive/max_current",          drive_max_current_,          5000);
+
+    pn.param("control/steer/ki",                   steer_ki_,                   1000000);    // Division factor, zero turns off.
+    pn.param("control/steer/k",                    steer_k_,                    400);        // Division factor, zero turns off.
+    pn.param("control/steer/kd",                   steer_kd_,                   0);          // NOT IMPLEMENTED FOR STEER MOTORS
+    pn.param("control/steer/kp",                   steer_kp_,                   0);          // NOT USED
+    pn.param("control/steer/i_limit",              steer_i_limit_,              10000000);   // absolute integration limit
+    pn.param("control/steer/scale_factor",         steer_scale_factor_,         100); 
+    pn.param("control/steer/following_error_max",  steer_following_err_max_,    6000);
+    pn.param("control/steer/max_current",          steer_max_current_,          6000);
+
+    pn.param("error/following_timeout",            following_timeout_,          2000);       // [ms]
+    pn.param("error/current_timeout",              current_timeout_,            100);        // [ms]
+    pn.param("error/connection_timeout",           connection_timeout_,         400);        // [ms]
+    pn.param("error/abs_encoder_timeout",          abs_encoder_timeout_,        75);         // [ms]
+
+
+    ROS_INFO_NAMED(ROS_NAME, "Loaded '%s' parameters", name_.c_str());
+}
+
 bool PlatformController::update()
 {
-    // Do not try to update as long as the emercency button is pressed
+    // Do not try to update as long as the emergency button is pressed
     if(sh_emergency_)
     {
         ROS_WARN_THROTTLE_NAMED(5.0, ROS_NAME, "Emergency button pressed, not updating wheelunit states.");        
@@ -101,7 +140,7 @@ bool PlatformController::update()
         return false;
     }
 
-    // Update and publish the wheelunit states if succesfull
+    // Update and publish the wheelunit states if successful
     if(!getStatus())
         return false;
 
@@ -115,7 +154,7 @@ bool PlatformController::update()
 
     if( not alarmStateOk() )
     {
-        // If we where persuing a goal wheel state we have to abort at this point.
+        // If we where pursuing a goal wheel state we have to abort at this point.
         smc_->abort();
 
         return false;
@@ -168,10 +207,10 @@ bool PlatformController::alarmStateOk()
                     ROS_WARN_NAMED(ROS_NAME, "Wheel %s drive current: %4d/%4d of max current: %4d, steer current: %4d/%4d of max current: %4d", wheelunit.name_.c_str(), 
                         wheelunit.measured_drive_current_, 
                         wheelunit.measured_max_drive_current_, 
-                        PLATFORM_CONTROLLER_DRIVE_MAX_CURR, 
+                        drive_max_current_, 
                         wheelunit.measured_steer_current_, 
                         wheelunit.measured_max_steer_current_,
-                        PLATFORM_CONTROLLER_STEER_MAX_CURR);
+                        steer_max_current_);
                 }
                 operator_gui.warn("Stroom fout platform controller.");
                 disable();
@@ -213,6 +252,7 @@ bool PlatformController::enable()
 	if(enabled_)
 		return true;
 
+    // Reset alarm status
     sh_platform_controller_alarm_   = false;
     alarm_number_                   = 0;
     alarm_byte_                     = 0;
@@ -220,17 +260,17 @@ bool PlatformController::enable()
     // Start watching for responses
     spawnReadloop();
 
-    if(!checkControllerID(PLATFORM_CONTROLLER_FIRMWARE_ID)) 
+    if( not checkControllerID(PLATFORM_CONTROLLER_FIRMWARE_ID) ) 
         return false;
 
-    if(!checkFirmwareVersion(PLATFORM_CONTROLLER_FIRMWARE_MAJOR_VERSION, PLATFORM_CONTROLLER_FIRMWARE_MINOR_VERSION))
+    if( not checkFirmwareVersion(PLATFORM_CONTROLLER_FIRMWARE_MAJOR_VERSION, PLATFORM_CONTROLLER_FIRMWARE_MINOR_VERSION) )
         return false;
 
-    ROS_INFO_NAMED(ROS_NAME, "Platform controller with firmware version %d.%d connected.", received_firmware_major_version_, received_firmware_minor_version_);
+    ROS_INFO_NAMED(ROS_NAME, "Successfully connected to platform controller with firmware version %d.%d.", received_firmware_major_version_, received_firmware_minor_version_);
 
-    if(!resetLowLevel())
+    if( not resetLowLevel() )
     {
-        ROS_WARN_NAMED(ROS_NAME, "Unable to reset lowlevel controller.");
+        ROS_WARN_NAMED(ROS_NAME, "Could not reset low-level controller.");
         return false;
     }
 
@@ -241,70 +281,69 @@ bool PlatformController::enable()
         wheelunit.setVelocityRadPerSec(0.0);   
     }
 
-    if(!writeWheelStates())
+    if( not writeWheelStates() )
     {
-    	ROS_WARN_NAMED(ROS_NAME, "Unable to set wheel unit states.");
+    	ROS_WARN_NAMED(ROS_NAME, "Could not set wheel unit states.");
     	return false;
     }
 
-    if(!setErrorTresholds(  PLATFORM_CONTROLLER_FOLLOWING_ERR_TIMER,
-                            PLATFORM_CONTROLLER_CURRENT_ERR_TIMER, 
-                            PLATFORM_CONTROLLER_CONNECTION_ERR_TIMER,
-                            PLATFORM_CONTROLLER_MAE_ERR_TIMER))
+    if( not setErrorTresholds(  following_timeout_,
+                                current_timeout_, 
+                                connection_timeout_,
+                                abs_encoder_timeout_))
     {
-        ROS_WARN_NAMED(ROS_NAME, "Unable to set error tresholds.");
+        ROS_WARN_NAMED(ROS_NAME, "Could not set error timeouts.");
         return false;
 
     }
 
-    if(!setDrivePIDs(   PLATFORM_CONTROLLER_DRIVE_KI, 
-                        PLATFORM_CONTROLLER_DRIVE_K, 
-                        PLATFORM_CONTROLLER_DRIVE_KP, 
-                        PLATFORM_CONTROLLER_DRIVE_KD, 
-                        PLATFORM_CONTROLLER_DRIVE_ILIMIT, 
-                        PLATFORM_CONTROLLER_DRIVE_SCALE, 
-                        PLATFORM_CONTROLLER_DRIVE_SCALE, 
-                        WHEELUNIT_MAX_VEL, 
-                        PLATFORM_CONTROLLER_DRIVE_FEMAX, 
-                        PLATFORM_CONTROLLER_DRIVE_MAX_CURR))
+    if( not setDrivePIDs(   drive_ki_, 
+                            drive_k_, 
+                            drive_kp_, 
+                            drive_kd_, 
+                            drive_i_limit_, 
+                            drive_scale_factor_, 
+                            drive_scale_factor_, 
+                            WHEELUNIT_MAX_VEL, 
+                            drive_following_err_max_, 
+                            drive_max_current_))
     {
-    	ROS_WARN_NAMED(ROS_NAME, "Unable to set drive motor controller PI values.");
+    	ROS_WARN_NAMED(ROS_NAME, "Could not set drive motor controller parameter.");
     	return false;
     }
 
-    if(!setSteerPIDs(   PLATFORM_CONTROLLER_STEER_KI, 
-                        PLATFORM_CONTROLLER_STEER_K, 
-                        PLATFORM_CONTROLLER_STEER_KP, 
-                        PLATFORM_CONTROLLER_STEER_KD, 
-                        PLATFORM_CONTROLLER_STEER_ILIMIT, 
-                        PLATFORM_CONTROLLER_STEER_SCALE, 
-                        PLATFORM_CONTROLLER_STEER_SCALE, 
-                        STEER_VELOCITY_LIMIT*1000,                   //! @todo OH: UGLY magic number
-                        PLATFORM_CONTROLLER_STEER_FEMAX, 
-                        PLATFORM_CONTROLLER_STEER_MAX_CURR))
+    if( not setSteerPIDs(   steer_ki_, 
+                            steer_k_, 
+                            steer_kp_, 
+                            steer_kd_, 
+                            steer_i_limit_, 
+                            steer_scale_factor_, 
+                            steer_scale_factor_, 
+                            STEER_VELOCITY_LIMIT*1000,                   //! @todo OH: UGLY magic number
+                            steer_following_err_max_, 
+                            steer_max_current_))
     {
-    	ROS_WARN_NAMED(ROS_NAME, "Unable to set steer motor controller PI values.");
+    	ROS_WARN_NAMED(ROS_NAME, "Could not set steer motor controller parameter.");
     	return false;
     }
 
-    if(!setStartStopValues(WHEELUNIT_START_MOVE_ANGLE_ERR_VAL_LOW_LEVEL, WHEELUNIT_STOP_MOVE_ANGLE_ERR_VAL_LOW_LEVEL))
+    if( not setStartStopValues(WHEELUNIT_START_MOVE_ANGLE_ERR_VAL_LOW_LEVEL, WHEELUNIT_STOP_MOVE_ANGLE_ERR_VAL_LOW_LEVEL) )
     {
         ROS_WARN_NAMED(ROS_NAME, "Could not set start and stop values.");
         return false;
     }   
 
-    // Enable the lowlevel controller by sending a 1
+    // Enable the low-level controller by sending a 1
     ControllerResponse 	response = *(new ControllerResponse(PLATFORM_CONTROLLER_ENABLE, HARDWARE_CONTROL_TIMEOUT));
-    response.addExpectedDataItem(ControllerData("1", enabled_, "Unable to enable low-level platform controller."));
+    response.addExpectedDataItem(ControllerData("1", enabled_, "Could not enable low-level platform controller."));
     ControllerCommand 	command(PLATFORM_CONTROLLER_ENABLE, response);
     command.addDataItem("1");
             
-    if(!executeCommand(command))
+    if( not executeCommand(command) )
         return false;  
 
-    if(!setActiveBrakeMode(false))
+    if( not setActiveBrakeMode(false) )
     {
-        ROS_WARN_NAMED(ROS_NAME, "Could not set passive brake drive mode.");
         return false;
     }
 
@@ -329,7 +368,7 @@ bool PlatformController::disable()
 
         // Disable the lowlevel controller by sending a 0
         ControllerResponse 	response = *(new ControllerResponse(PLATFORM_CONTROLLER_ENABLE, HARDWARE_CONTROL_TIMEOUT));
-        response.addExpectedDataItem(ControllerData("0", enabled_, "Unable to disable low-level platform controller"));
+        response.addExpectedDataItem(ControllerData("0", enabled_, "Could not disable low-level platform controller."));
         ControllerCommand 	command(PLATFORM_CONTROLLER_ENABLE, response);
         command.addDataItem("0");
                 
@@ -351,7 +390,7 @@ bool PlatformController::disable()
     // Stop watching for responses   
     stopReadloop();
 
-    // Disconnect communitcation interface
+    // Disconnect communication interface
     comm_interface_.disconnect();
 
     // Force locally disabled
@@ -392,7 +431,7 @@ bool PlatformController::reset(bool force_reset)
     disable();
     if(enable())
     {
-        ROS_INFO_NAMED(ROS_NAME, "Resetting platform controller succesfull (%d/%d).", reset_tries_, MAX_RESET_TRIES);
+        ROS_INFO_NAMED(ROS_NAME, "Resetting platform controller successful (%d/%d).", reset_tries_, MAX_RESET_TRIES);
         operator_gui.message("Herstart platform aansturing succesvol.");
         if(getStatus())
         {
@@ -414,13 +453,13 @@ bool PlatformController::reset(bool force_reset)
 
     if(reset_tries_ < MAX_RESET_TRIES)
     {
-        ROS_ERROR_NAMED(ROS_NAME, "Resetting platform controller unsuccesfull (%d/%d), retrying in %.2fs.", reset_tries_, MAX_RESET_TRIES, (float)reset_tries_);
+        ROS_ERROR_NAMED(ROS_NAME, "Resetting platform controller unsuccessful (%d/%d), retrying in %.2fs.", reset_tries_, MAX_RESET_TRIES, (float)reset_tries_);
         ros::Duration((float)reset_tries_).sleep();
     }
     else
     {
         operator_gui.warn("Herstart platform aansturing niet gelukt.");
-        ROS_ERROR_NAMED(ROS_NAME, "Resetting platform controller unsuccesfull (%d/%d), disabling platform controller.", reset_tries_, MAX_RESET_TRIES);
+        ROS_ERROR_NAMED(ROS_NAME, "Resetting platform controller unsuccessful (%d/%d), disabling platform controller.", reset_tries_, MAX_RESET_TRIES);
     }   
 
     return false;
@@ -599,7 +638,17 @@ bool PlatformController::setActiveBrakeMode(bool active_brake)
     ControllerCommand  command(PLATFORM_CONTROLLER_BRAKE_MODE, response);
     command.addDataItem(active_brake_lowlevel_param);
 
-    return executeCommand(command); 
+    if( not executeCommand(command) )
+    {
+        if(active_brake)
+            ROS_WARN_NAMED(ROS_NAME, "Could not set drive mode braking behavior to 'active'.");
+        else
+            ROS_WARN_NAMED(ROS_NAME, "Could not set drive mode braking behavior to 'active'.");
+
+        return false;
+    }
+
+    return true;
 }
 
 
@@ -1205,11 +1254,11 @@ bool PlatformController::writeWheelStates()
         return false;    
     }
 
-    // Stop the watchdog if we succesfully have written a stop command
+    // Stop the watchdog if we successfully have written a stop command
     if(stopWritten())
         velocity_watchdog_.stop();
 
-    // Store this succesfully written state
+    // Store this successfully written state
     prev_wheelunits_ = wheelunits_;
 
     return true;
@@ -1293,7 +1342,7 @@ void PlatformController::publishWheelUnitTransforms()
 
 void PlatformController::CB_WheelUnitStatesRequest(const rose_base_msgs::wheelunit_statesGoalConstPtr& goal, SMC* smc)
 {
-    // Do not try to update as long as the emercency button is pressed
+    // Do not try to update as long as the emergency button is pressed
     if(sh_emergency_)
     {
         ROS_WARN_THROTTLE_NAMED(5.0, ROS_NAME, "Emergency button pressed, not updating wheelunit states.");        
@@ -1354,12 +1403,12 @@ void PlatformController::CB_cancelAllMovements()
     int retries = 2;
     for(int i = 0; i < retries; i++)
     {
-        // If succesfully written the written the wheelstate, return
+        // If successfully written the written the wheelstate, return
         if(sendWheelState())
             return;
     }
 
-    // If not succesfull, raise the emergency state
+    // If not successful, raise the emergency state
     ROS_WARN_NAMED(ROS_NAME, "Could not stop wheels on watchdog, raising the emergency state.");
     sh_emergency_ = true;
 }
