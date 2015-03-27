@@ -83,8 +83,6 @@
 // Generic platform defines
 #define PLATFORM_CONTROLLER_CLK_FREQ                  80000000.0      // [Hz] -> 80Mhz
 #define PLATFORM_CONTROLLER_FIRMWARE_ID               1
-#define PLATFORM_CONTROLLER_FIRMWARE_MAJOR_VERSION    2
-#define PLATFORM_CONTROLLER_FIRMWARE_MINOR_VERSION    4
 
 // platform_controller defines
 #define MAX_RESET_TRIES                         5           // DISABLED, see reset function
@@ -187,6 +185,9 @@ class PlatformController : public HardwareController<Serial>
   private:
     int         baud_rate_;
     std::string serial_port_;
+
+    int major_version_;
+    int minor_version_;
 
     int drive_ki_;
     int drive_k_;
