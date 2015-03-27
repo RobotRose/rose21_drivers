@@ -84,6 +84,8 @@ void PlatformController::loadParameters()
 
     ROS_ASSERT_MSG(pn.getParam("serial_port", serial_port_), "Parameter serial_port must be specified.");
     ROS_ASSERT_MSG(pn.getParam("baud_rate", baud_rate_), "Parameter baud_rate must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("major_version", major_version_), "Parameter major_version must be specified.");     //! @todo OH [IMPR]: Move this such it is an configurable from the hardware controller.
+    ROS_ASSERT_MSG(pn.getParam("minor_version", minor_version_), "Parameter minor_version must be specified.");     //! @todo OH [IMPR]: Move this such it is an configurable from the hardware controller.
 
     pn.param("control/drive/ki",                   drive_ki_,                   2000);      // Division factor, zero turns off.
     pn.param("control/drive/k",                    drive_k_,                    2000);      // Division factor, zero turns off.
@@ -263,7 +265,7 @@ bool PlatformController::enable()
     if( not checkControllerID(PLATFORM_CONTROLLER_FIRMWARE_ID) ) 
         return false;
 
-    if( not checkFirmwareVersion(PLATFORM_CONTROLLER_FIRMWARE_MAJOR_VERSION, PLATFORM_CONTROLLER_FIRMWARE_MINOR_VERSION) )
+    if( not checkFirmwareVersion(major_version_, minor_version_) )
         return false;
 
     ROS_INFO_NAMED(ROS_NAME, "Successfully connected to platform controller with firmware version %d.%d.", received_firmware_major_version_, received_firmware_minor_version_);
