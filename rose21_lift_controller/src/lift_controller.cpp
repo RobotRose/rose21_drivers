@@ -162,12 +162,12 @@ void LiftController::loadParameters()
     ROS_ASSERT_MSG(pn.getParam("lift/min_speed",    lift_min_speed_), "Parameter lift/min_speed must be specified.");  // [0-255]
     ROS_ASSERT_MSG(pn.getParam("lift/max_speed",    lift_max_speed_), "Parameter lift/max_speed must be specified.");  // [0-255]
     
-    ROS_ASSERT_MSG(pn.getParam("lift/p",            lift_p_), "Parameter lift_p_ must be specified.");
-    ROS_ASSERT_MSG(pn.getParam("lift/i",            lift_i_), "Parameter lift_i_ must be specified.");
-    ROS_ASSERT_MSG(pn.getParam("lift/i_lim",        lift_i_lim_), "Parameter lift_i_lim_ must be specified.");
-    ROS_ASSERT_MSG(pn.getParam("lift/p_scale",      lift_p_scale_), "Parameter lift_p_scale_ must be specified.");
-    ROS_ASSERT_MSG(pn.getParam("lift/i_scale",      lift_i_scale_), "Parameter lift_i_scale_ must be specified.");
-    ROS_ASSERT_MSG(pn.getParam("lift/hysteresis",   lift_hysteresis_), "Parameter lift_hysteresis_ must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/p",            lift_p_), "Parameter lift/p must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/i",            lift_i_), "Parameter lift/i must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/i_lim",        lift_i_lim_), "Parameter lift/i_lim must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/p_scale",      lift_p_scale_), "Parameter lift/p_scale must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/i_scale",      lift_i_scale_), "Parameter lift/i_scale must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/hysteresis",   lift_hysteresis_), "Parameter lift/hysteresis must be specified.");
 
 
     ROS_INFO_NAMED(ROS_NAME, "Loaded '%s' parameters.", name_.c_str());
