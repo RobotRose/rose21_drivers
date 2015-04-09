@@ -74,14 +74,6 @@
 // Platform properties
 #define LIFT_CONTROLLER_CLK_FREQ                80000000.0      // [Hz] -> 80Mhz
 #define LIFT_CONTROL_FIRMWARE_ID                2
-#define LIFT_CONTROL_FIRMWARE_MAJOR_VERSION     3
-#define LIFT_CONTROL_FIRMWARE_MINOR_VERSION     3
-
-// Default parameters
-#define LIFT_CONTROLLER_MIN_LIFT_POSITION                      1995//1900//1900         // [200-3400]
-#define LIFT_CONTROLLER_MAX_LIFT_POSITION                      2500//2200//3000        // [200-3400]
-#define LIFT_CONTROLLER_MIN_LIFT_SPEED                         90          // [0-255]
-#define LIFT_CONTROLLER_MAX_LIFT_SPEED                         220         // [0-255]
 
 using namespace std;
 using namespace rose_shared_variables;
@@ -90,7 +82,7 @@ class LiftController : public HardwareController<Serial>
 {
   public:
     // Functions
-    LiftController(string name, ros::NodeHandle n, string serial_port, int baudrate);
+    LiftController();
     ~LiftController();
 
     void    publishLiftState();
@@ -184,18 +176,31 @@ class LiftController : public HardwareController<Serial>
 
   protected:
     // Functions
-    
+    void                    loadParameters();
 
     // Callbacks
     void                    CB_SetControllerState(const std_msgs::Bool::ConstPtr& enable);
     void                    CB_LiftPositionRequest(const rose_base_msgs::lift_command::ConstPtr& lift_command);
 
     // Variables
+    ros::NodeHandle         n_;
+    std::string             name_;
+
     ros::Publisher          lift_pub_;
     ros::Publisher          bumpers_pub_;
     ros::Publisher          bumpers2_pub_;
     ros::Subscriber         lift_controller_enable_sub_;
     ros::Subscriber         lift_position_request_sub_;
+
+    std::string serial_port_;
+    int         baud_rate_;
+    int         major_version_;
+    int         minor_version_;
+
+    int lift_min_pos_;
+    int lift_max_pos_;
+    int lift_min_speed_;
+    int lift_max_speed_;
 
     std::map<int, std::vector<rose_geometry::Point>> bumper_footprints_;
 

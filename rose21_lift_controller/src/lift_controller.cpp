@@ -15,15 +15,17 @@
 
 using namespace std;
 
-LiftController::LiftController(string name, ros::NodeHandle n, string serial_port, int baudrate)
+LiftController::LiftController()
     : HardwareController<Serial>()
+    , n_(ros::NodeHandle())
+    , name_(ros::this_node::getName())
     , controller_enabled_(false)
     , requested_controller_enabled_(false)
     , sh_emergency_(SharedVariable<bool>("emergency"))
 {
-    n_                      = n;
-    name_                   = name;
-    comm_interface_         = Serial(name, serial_port, baudrate);
+    loadParameters();
+
+    comm_interface_         = Serial(name_, serial_port_, baud_rate_);
 
     // Publishers
     lift_pub_               = n_.advertise<rose_base_msgs::lift_state>("/lift_controller/lift/state", 1, true);
@@ -142,6 +144,27 @@ LiftController::~LiftController()
     ROS_INFO_NAMED(ROS_NAME, "Stopped %s", name_.c_str());
 }
 
+void LiftController::loadParameters()
+{
+    // Get a private nodehandle to load the configurable parameters
+    ros::NodeHandle pn = ros::NodeHandle("~");
+
+    ROS_INFO_NAMED(ROS_NAME, "Loading '%s' parameters.", name_.c_str());
+
+    ROS_ASSERT_MSG(pn.getParam("serial_port", serial_port_), "Parameter serial_port must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("baud_rate", baud_rate_), "Parameter baud_rate must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("major_version", major_version_), "Parameter major_version must be specified.");     //! @todo OH [IMPR]: Move this such it is an configurable from the hardware controller.
+    ROS_ASSERT_MSG(pn.getParam("minor_version", minor_version_), "Parameter minor_version must be specified.");     //! @todo OH [IMPR]: Move this such it is an configurable from the hardware controller.
+
+    ROS_ASSERT_MSG(pn.getParam("lift/min_pos", lift_min_pos_), "Parameter lift_min_pos_ must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/max_pos", lift_max_pos_), "Parameter lift_max_pos_ must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/min_speed", lift_min_speed_), "Parameter lift_min_speed_ must be specified.");  // [0-255]
+    ROS_ASSERT_MSG(pn.getParam("lift/max_speed", lift_max_speed_), "Parameter lift_max_speed_ must be specified.");  // [0-255]
+
+    ROS_INFO_NAMED(ROS_NAME, "Loaded '%s' parameters.", name_.c_str());
+}
+
+
 void LiftController::publishLiftState()
 {
     rose_base_msgs::lift_state lift_state;
@@ -209,7 +232,7 @@ bool LiftController::enable()
     if(!checkControllerID(LIFT_CONTROL_FIRMWARE_ID)) 
         return false;
 
-    if(!checkFirmwareVersion(LIFT_CONTROL_FIRMWARE_MAJOR_VERSION, LIFT_CONTROL_FIRMWARE_MINOR_VERSION)) 
+    if(!checkFirmwareVersion(major_version_, minor_version_)) 
         return false;
 
     ROS_INFO_NAMED(ROS_NAME, "Lift and bumper controller controller with firmware version %d.%d connected.", received_firmware_major_version_, received_firmware_minor_version_);
@@ -316,8 +339,8 @@ void LiftController::resetState()
 bool LiftController::setDefaults()
 {
     bool all_success = true;
-    all_success = setMinMaxLiftPosition(LIFT_CONTROLLER_MIN_LIFT_POSITION + 1, LIFT_CONTROLLER_MAX_LIFT_POSITION) && all_success;
-    all_success = setMinMaxLiftSpeed(LIFT_CONTROLLER_MIN_LIFT_SPEED, LIFT_CONTROLLER_MAX_LIFT_SPEED) && all_success;
+    all_success = setMinMaxLiftPosition(lift_min_pos_, lift_max_pos_) && all_success;
+    all_success = setMinMaxLiftSpeed(lift_min_speed_, lift_max_speed_) && all_success;
     return all_success;
 }
 
