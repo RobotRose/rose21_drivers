@@ -379,7 +379,8 @@ void LiftController::showState()
     ROS_INFO_NAMED(ROS_NAME, "Lift Position                 : %d", cur_position_);
     ROS_INFO_NAMED(ROS_NAME, "Lift Position                 : %d%%", cur_position_percentage_);
     ROS_INFO_NAMED(ROS_NAME, "Lift Position Error           : %d", cur_position_error_);
-    ROS_INFO_NAMED(ROS_NAME, "Is in postition               : %d", is_in_position_);
+    ROS_INFO_NAMED(ROS_NAME, "Lift P|I|PI|DUTY|DIRECTION    : %3.3f|%3.3f|%3.3f|%d|%d", lift_p_cmd_, lift_i_cmd_, lift_pi_cmd_, lift_duty_cycle_, lift_direction_);
+    ROS_INFO_NAMED(ROS_NAME, "Is in position                : %d", is_in_position_);
     ROS_INFO_NAMED(ROS_NAME, "Is moving                     : %d", is_moving_);
     ROS_INFO_NAMED(ROS_NAME, "MIN/MAX position              : %d/%d", min_lift_position_, max_lift_position_);
     ROS_INFO_NAMED(ROS_NAME, "MIN/MAX speed                 : %d/%d", min_lift_speed_, max_lift_speed_);
@@ -425,6 +426,7 @@ bool LiftController::update()
     all_success = getSetPositionPercentage() && all_success;
     all_success = getSetSpeed() && all_success;
     all_success = getSetSpeedPercentage() && all_success;
+    all_success = getControllerStatus() && all_success;
     // all_success = getADCINT() && all_success; //! @todo OH: 
 
     handleSafety(); //! @todo OH: HACK should this be in update?
@@ -669,6 +671,35 @@ bool LiftController::getFloatScale()
 {
     float_scale_ = -1;
     return getValue(LIFT_CONTROLLER_GET_FLOAT_SCALE, HARDWARE_CONTROL_TIMEOUT, float_scale_);
+}
+
+bool LiftController::getControllerStatus()
+{
+    ControllerResponse response(LIFT_CONTROLLER_GET_CONTROLLER_STATUS, HARDWARE_CONTROL_TIMEOUT);
+
+    response.addExpectedDataItem(ControllerData(lift_p_cmd_int_));
+    response.addExpectedDataItem(ControllerData(lift_i_cmd_int_));
+    response.addExpectedDataItem(ControllerData(lift_pi_cmd_int_));
+    response.addExpectedDataItem(ControllerData(lift_duty_cycle_));
+    response.addExpectedDataItem(ControllerData(lift_direction_));
+    ControllerCommand  command(LIFT_CONTROLLER_GET_CONTROLLER_STATUS, response);
+
+    if(executeCommand(command))
+    {
+        lift_p_cmd_     = lift_p_cmd_int_/float_scale_;
+        lift_i_cmd_     = lift_i_cmd_int_/float_scale_;
+        lift_pi_cmd_    = lift_pi_cmd_int_/float_scale_;
+        return true;
+    }
+    else
+    {
+        lift_p_cmd_     = 0.0;
+        lift_i_cmd_     = 0.0;
+        lift_pi_cmd_    = 0.0;
+        lift_duty_cycle_ = 0.0;
+        lift_direction_  = 666; 
+        return false;
+    }
 }
 
 // === SETTERS === 

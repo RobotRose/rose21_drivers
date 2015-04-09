@@ -55,13 +55,14 @@
 #define LIFT_CONTROLLER_GET_SET_SPEED               "217" // (int speed 0-255)
 #define LIFT_CONTROLLER_GET_SET_SPEED_PERCENTAGE    "218" // (int 0-100%)
 #define LIFT_CONTROLLER_GET_FLOAT_SCALE             "219" // (int)
+#define LIFT_CONTROLLER_GET_CONTROLLER_STATUS       "220" // (double, double, double, int, int)  | P_cmd, I_cmd, PI_cmd, duty_cycle, motor_direction
 
 // Set commands
 #define LIFT_CONTROLLER_SET_SAFETY_OUTPUT       "300" // bool                                -> bool (set value)
 #define LIFT_CONTROLLER_SET_EXTRA_OUTPUT        "301" // bool                                -> bool (set value)
 #define LIFT_CONTROLLER_SET_MINMAX_MOTOR_POS    "302" // int, int                            -> int, int (set values)
 #define LIFT_CONTROLLER_SET_MINMAX_MOTOR_SPEED  "303" // int, int (0-255, 0-255)             -> int, int (set values)
-#define LIFT_CONTROLLER_SET_CONTROLLER_PARAMS   "304" // float, float, int, int, int         -> float, float, int, int, int  | P, I, I_lim, P_scale, I_scale, Hysteresis
+#define LIFT_CONTROLLER_SET_CONTROLLER_PARAMS   "304" // double, double, int, int, int         -> double, double, int, int, int  | P, I, I_lim, P_scale, I_scale, Hysteresis
 
 // Other commands
 #define LIFT_CONTROLLER_ENABLE                  "400" // bool (enabled/disabled)                 -> bool (enabled/disabled)
@@ -130,6 +131,7 @@ class LiftController : public HardwareController<Serial>
     bool    getSetSpeed();
     bool    getSetSpeedPercentage();
     bool    getFloatScale();
+    bool    getControllerStatus();
 
     bool    setSafetyOutput(bool state);
     bool    setExtraOutput(bool state);
@@ -212,6 +214,15 @@ class LiftController : public HardwareController<Serial>
     int lift_p_scale_;
     int lift_i_scale_;
     int lift_hysteresis_;
+
+    int lift_p_cmd_int_;
+    int lift_i_cmd_int_;
+    int lift_pi_cmd_int_;
+    double lift_p_cmd_;
+    double lift_i_cmd_;
+    double lift_pi_cmd_;
+    int lift_duty_cycle_;
+    int lift_direction_;
     
 
     std::map<int, std::vector<rose_geometry::Point>> bumper_footprints_;
