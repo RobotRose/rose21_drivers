@@ -22,6 +22,7 @@ LiftController::LiftController()
     , controller_enabled_(false)
     , requested_controller_enabled_(false)
     , sh_emergency_(SharedVariable<bool>("emergency"))
+    , float_scale_(-1)
 {
     loadParameters();
 
@@ -151,15 +152,23 @@ void LiftController::loadParameters()
 
     ROS_INFO_NAMED(ROS_NAME, "Loading '%s' parameters.", name_.c_str());
 
-    ROS_ASSERT_MSG(pn.getParam("serial_port", serial_port_), "Parameter serial_port must be specified.");
-    ROS_ASSERT_MSG(pn.getParam("baud_rate", baud_rate_), "Parameter baud_rate must be specified.");
-    ROS_ASSERT_MSG(pn.getParam("major_version", major_version_), "Parameter major_version must be specified.");     //! @todo OH [IMPR]: Move this such it is an configurable from the hardware controller.
-    ROS_ASSERT_MSG(pn.getParam("minor_version", minor_version_), "Parameter minor_version must be specified.");     //! @todo OH [IMPR]: Move this such it is an configurable from the hardware controller.
+    ROS_ASSERT_MSG(pn.getParam("serial_port",       serial_port_), "Parameter serial_port must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("baud_rate",         baud_rate_), "Parameter baud_rate must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("major_version",     major_version_), "Parameter major_version must be specified.");     //! @todo OH [IMPR]: Move this such it is an configurable from the hardware controller.
+    ROS_ASSERT_MSG(pn.getParam("minor_version",     minor_version_), "Parameter minor_version must be specified.");     //! @todo OH [IMPR]: Move this such it is an configurable from the hardware controller.
 
-    ROS_ASSERT_MSG(pn.getParam("lift/min_pos", lift_min_pos_), "Parameter lift_min_pos_ must be specified.");
-    ROS_ASSERT_MSG(pn.getParam("lift/max_pos", lift_max_pos_), "Parameter lift_max_pos_ must be specified.");
-    ROS_ASSERT_MSG(pn.getParam("lift/min_speed", lift_min_speed_), "Parameter lift_min_speed_ must be specified.");  // [0-255]
-    ROS_ASSERT_MSG(pn.getParam("lift/max_speed", lift_max_speed_), "Parameter lift_max_speed_ must be specified.");  // [0-255]
+    ROS_ASSERT_MSG(pn.getParam("lift/min_pos",      lift_min_pos_), "Parameter lift/min_pos must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/max_pos",      lift_max_pos_), "Parameter lift/max_pos must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/min_speed",    lift_min_speed_), "Parameter lift/min_speed must be specified.");  // [0-255]
+    ROS_ASSERT_MSG(pn.getParam("lift/max_speed",    lift_max_speed_), "Parameter lift/max_speed must be specified.");  // [0-255]
+    
+    ROS_ASSERT_MSG(pn.getParam("lift/p",            lift_p_), "Parameter lift_p_ must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/i",            lift_i_), "Parameter lift_i_ must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/i_lim",        lift_i_lim_), "Parameter lift_i_lim_ must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/p_scale",      lift_p_scale_), "Parameter lift_p_scale_ must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/i_scale",      lift_i_scale_), "Parameter lift_i_scale_ must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/hysteresis",   lift_hysteresis_), "Parameter lift_hysteresis_ must be specified.");
+
 
     ROS_INFO_NAMED(ROS_NAME, "Loaded '%s' parameters.", name_.c_str());
 }
@@ -237,10 +246,16 @@ bool LiftController::enable()
 
     ROS_INFO_NAMED(ROS_NAME, "Lift and bumper controller controller with firmware version %d.%d connected.", received_firmware_major_version_, received_firmware_minor_version_);
 
-
-    if(!setDefaults())
+    if( not getFloatScale() )
     {
-        ROS_WARN_NAMED(ROS_NAME, "Could not set default parameters for lift and bumper controller, controller has not enabled.");
+        ROS_WARN_NAMED(ROS_NAME, "Could not get float scaling parameter for lift and bumper controller, controller will not be enabled.");
+        return false;
+    }
+
+    if( not setParameters() )
+    {
+        ROS_WARN_NAMED(ROS_NAME, "Could not set default parameters for lift and bumper controller, controller will not be  not enabled.");
+        return false;
     }
 
     int controller_enabled_integer = 0;
@@ -336,11 +351,12 @@ void LiftController::resetState()
     serial_debug_                   = 0;
 }
 
-bool LiftController::setDefaults()
+bool LiftController::setParameters()
 {
     bool all_success = true;
     all_success = setMinMaxLiftPosition(lift_min_pos_, lift_max_pos_) && all_success;
     all_success = setMinMaxLiftSpeed(lift_min_speed_, lift_max_speed_) && all_success;
+    all_success = setControllerParameters(lift_p_, lift_i_, lift_i_lim_, lift_p_scale_, lift_i_scale_, lift_hysteresis_) && all_success;
     return all_success;
 }
 
@@ -649,6 +665,12 @@ bool LiftController::getSetSpeedPercentage()
     return getValue(LIFT_CONTROLLER_GET_SET_SPEED_PERCENTAGE, HARDWARE_CONTROL_TIMEOUT, set_lift_speed_percentage_);
 }
 
+bool LiftController::getFloatScale()
+{
+    float_scale_ = -1;
+    return getValue(LIFT_CONTROLLER_GET_FLOAT_SCALE, HARDWARE_CONTROL_TIMEOUT, float_scale_);
+}
+
 // === SETTERS === 
 
 bool LiftController::setSafetyOutput(bool state)
@@ -667,11 +689,38 @@ bool LiftController::setExtraOutput(bool state)
         return setValue(LIFT_CONTROLLER_SET_EXTRA_OUTPUT, HARDWARE_CONTROL_TIMEOUT, 0, extra_output_state_);
 }
 
+bool LiftController::setControllerParameters(double p, double i, int i_lim, int p_scale, int i_scale, int hysteresis)
+{
+    if(float_scale_ == -1)
+    {
+        ROS_WARN_NAMED(ROS_NAME, "setControllerParameters: Float scale was not set.");      
+        return false;
+    }
+
+    ControllerResponse response(LIFT_CONTROLLER_SET_CONTROLLER_PARAMS, HARDWARE_CONTROL_TIMEOUT);
+    response.addExpectedDataItem(ControllerData(p*float_scale_, "Setting 'p' unsuccessful."));
+    response.addExpectedDataItem(ControllerData(i*float_scale_, "Setting 'i' unsuccessful."));
+    response.addExpectedDataItem(ControllerData(i_lim,          "Setting 'i_lim' unsuccessful."));
+    response.addExpectedDataItem(ControllerData(p_scale,        "Setting 'p_scale' unsuccessful."));
+    response.addExpectedDataItem(ControllerData(i_scale,        "Setting 'i_scale' unsuccessful."));
+    response.addExpectedDataItem(ControllerData(hysteresis,     "Setting 'hysteresis' unsuccessful."));
+    ControllerCommand  command(LIFT_CONTROLLER_SET_CONTROLLER_PARAMS, response);
+    command.addDataItem(p*float_scale_);
+    command.addDataItem(i*float_scale_);
+    command.addDataItem(i_lim);
+    command.addDataItem(p_scale);
+    command.addDataItem(i_scale);
+    command.addDataItem(hysteresis);
+
+    return executeCommand(command);
+}
+
+
 bool LiftController::setMinMaxLiftPosition(int min_position, int max_position)
 {
     ControllerResponse response(LIFT_CONTROLLER_SET_MINMAX_MOTOR_POS, HARDWARE_CONTROL_TIMEOUT);
-    response.addExpectedDataItem(ControllerData(min_position, min_lift_position_, "Setting minimal motor position unsuccessfull."));
-    response.addExpectedDataItem(ControllerData(max_position, max_lift_position_, "Setting maximal motor position unsuccessfull."));
+    response.addExpectedDataItem(ControllerData(min_position, min_lift_position_, "Setting minimal motor position unsuccessful."));
+    response.addExpectedDataItem(ControllerData(max_position, max_lift_position_, "Setting maximal motor position unsuccessful."));
     ControllerCommand  command(LIFT_CONTROLLER_SET_MINMAX_MOTOR_POS, response);
     command.addDataItem(min_position);
     command.addDataItem(max_position);
@@ -682,8 +731,8 @@ bool LiftController::setMinMaxLiftPosition(int min_position, int max_position)
 bool LiftController::setMinMaxLiftSpeed(int min_speed, int max_speed)
 {
     ControllerResponse response(LIFT_CONTROLLER_SET_MINMAX_MOTOR_SPEED, HARDWARE_CONTROL_TIMEOUT);
-    response.addExpectedDataItem(ControllerData(min_speed, min_lift_speed_, "Setting minimal motor speed unsuccessfull."));
-    response.addExpectedDataItem(ControllerData(max_speed, max_lift_speed_, "Setting maximal motor speed unsuccessfull."));
+    response.addExpectedDataItem(ControllerData(min_speed, min_lift_speed_, "Setting minimal motor speed unsuccessful."));
+    response.addExpectedDataItem(ControllerData(max_speed, max_lift_speed_, "Setting maximal motor speed unsuccessful."));
     ControllerCommand  command(LIFT_CONTROLLER_SET_MINMAX_MOTOR_SPEED, response);
     command.addDataItem(min_speed);
     command.addDataItem(max_speed);

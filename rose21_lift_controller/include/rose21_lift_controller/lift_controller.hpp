@@ -50,16 +50,18 @@
 #define LIFT_CONTROLLER_GET_IS_IN_POSITION          "212" // (bool)
 #define LIFT_CONTROLLER_GET_IS_MOVING               "213" // (bool)
 #define LIFT_CONTROLLER_GET_SERIAL_DEBUG_MODE       "214" // (bool)
-#define LIFT_CONTROLLER_GET_SET_POS                 "215" // (position 200-3400)
-#define LIFT_CONTROLLER_GET_SET_POS_PERCENTAGE      "216" // (0-100%)
-#define LIFT_CONTROLLER_GET_SET_SPEED               "217" // (speed 0-255)
-#define LIFT_CONTROLLER_GET_SET_SPEED_PERCENTAGE    "218" // (0-100%)
+#define LIFT_CONTROLLER_GET_SET_POS                 "215" // (int position 200-3400)
+#define LIFT_CONTROLLER_GET_SET_POS_PERCENTAGE      "216" // (int 0-100%)
+#define LIFT_CONTROLLER_GET_SET_SPEED               "217" // (int speed 0-255)
+#define LIFT_CONTROLLER_GET_SET_SPEED_PERCENTAGE    "218" // (int 0-100%)
+#define LIFT_CONTROLLER_GET_FLOAT_SCALE             "219" // (int)
 
 // Set commands
 #define LIFT_CONTROLLER_SET_SAFETY_OUTPUT       "300" // bool                                -> bool (set value)
 #define LIFT_CONTROLLER_SET_EXTRA_OUTPUT        "301" // bool                                -> bool (set value)
-#define LIFT_CONTROLLER_SET_MINMAX_MOTOR_POS    "302" // int, int (200-3400, 200-3400)       -> int, int (set values)
+#define LIFT_CONTROLLER_SET_MINMAX_MOTOR_POS    "302" // int, int                            -> int, int (set values)
 #define LIFT_CONTROLLER_SET_MINMAX_MOTOR_SPEED  "303" // int, int (0-255, 0-255)             -> int, int (set values)
+#define LIFT_CONTROLLER_SET_CONTROLLER_PARAMS   "304" // float, float, int, int, int         -> float, float, int, int, int  | P, I, I_lim, P_scale, I_scale, Hysteresis
 
 // Other commands
 #define LIFT_CONTROLLER_ENABLE                  "400" // bool (enabled/disabled)                 -> bool (enabled/disabled)
@@ -92,7 +94,7 @@ class LiftController : public HardwareController<Serial>
     bool    disable();
     bool    isEnabled();
     void    resetState();
-    bool    setDefaults();
+    bool    setParameters();
     void    showState();
     bool    update();
     bool    getRequestedEnabledState();
@@ -127,10 +129,12 @@ class LiftController : public HardwareController<Serial>
     bool    getSetPositionPercentage();
     bool    getSetSpeed();
     bool    getSetSpeedPercentage();
+    bool    getFloatScale();
 
     bool    setSafetyOutput(bool state);
     bool    setExtraOutput(bool state);
 
+    bool    setControllerParameters(double p, double i, int i_lim, int p_scale, int i_scale, int hysteresis);
     bool    setMinMaxLiftPosition(int min_position, int max_position);
     bool    setMinMaxLiftSpeed(int min_speed, int max_speed);
 
@@ -201,6 +205,14 @@ class LiftController : public HardwareController<Serial>
     int lift_max_pos_;
     int lift_min_speed_;
     int lift_max_speed_;
+    int float_scale_;
+    double lift_p_;
+    double lift_i_;
+    int lift_i_lim_;
+    int lift_p_scale_;
+    int lift_i_scale_;
+    int lift_hysteresis_;
+    
 
     std::map<int, std::vector<rose_geometry::Point>> bumper_footprints_;
 
