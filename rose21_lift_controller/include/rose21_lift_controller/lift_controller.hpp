@@ -52,7 +52,7 @@
 #define LIFT_CONTROLLER_GET_SERIAL_DEBUG_MODE       "214" // (bool)
 #define LIFT_CONTROLLER_GET_SET_POS                 "215" // (int position 200-3400)
 #define LIFT_CONTROLLER_GET_SET_POS_PERCENTAGE      "216" // (int 0-100%)
-#define LIFT_CONTROLLER_GET_SET_SPEED               "217" // (int speed 0-255)
+#define LIFT_CONTROLLER_GET_SET_SPEED               "217" // (int speed 0-192)
 #define LIFT_CONTROLLER_GET_SET_SPEED_PERCENTAGE    "218" // (int 0-100%)
 #define LIFT_CONTROLLER_GET_FLOAT_SCALE             "219" // (int)
 #define LIFT_CONTROLLER_GET_CONTROLLER_STATUS       "220" // (double, double, double, int, int)  | P_cmd, I_cmd, PI_cmd, duty_cycle, motor_direction
