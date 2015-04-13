@@ -23,6 +23,7 @@ LiftController::LiftController()
     , requested_controller_enabled_(false)
     , sh_emergency_(SharedVariable<bool>("emergency"))
     , float_scale_(-1)
+    , no_alarm_(false)
 {
     loadParameters();
 
@@ -434,13 +435,33 @@ bool LiftController::update()
     return all_success;
 }
 
-//! @todo OH: HACK
+//! @todo OH [IMPR]: Hack, what about all other safety states.
 void LiftController::handleSafety()
 {
+    // Emergency input and button
     if(safety_input_state_ == 1 or safety_state_[0] == 1)
     {
-        ROS_WARN_NAMED(ROS_NAME, "Emergency stop pressed, wheels will be powered down.");
+        ROS_WARN_THROTTLE_NAMED(0.1, ROS_NAME, "Emergency stop activated, wheels will be powered down.");
         sh_emergency_ = true;
+    }
+
+    // Process alarm state
+    switch(safety_state_[5])
+    {
+        case 0:     // All OK
+            break;
+        case 1:     // Watchdog error
+            no_alarm_ = false;
+            ROS_WARN_THROTTLE_NAMED(0.1, ROS_NAME, "The lift controller reported an watchdog error.");
+            break;
+        case 2:     // Force stop motor received
+            ROS_WARN_THROTTLE_NAMED(0.1, ROS_NAME, "The lift controller reported an forced motor stop.");
+            no_alarm_ = false;
+            break;
+        default:
+            ROS_ERROR_THROTTLE_NAMED(0.1, ROS_NAME, "The lift controller reported an unknown error code.");
+            no_alarm_ = false;
+            break;
     }
 }
 
@@ -798,5 +819,8 @@ void LiftController::CB_SetControllerState(const std_msgs::Bool::ConstPtr& enabl
 
 void LiftController::CB_LiftPositionRequest(const rose_base_msgs::lift_command::ConstPtr& lift_command)
 {
-    setPose(lift_command->speed_percentage, 100.0 - lift_command->position_percentage); 
+    if(no_alarm_)
+        setPose(lift_command->speed_percentage, 100.0 - lift_command->position_percentage); 
+    else
+        ROSE_WARN_NAMED(ROS_NAME, "Not setting requested lift position due to alarm state. (Alarm code: %d)", safety_state_[5]);
 }

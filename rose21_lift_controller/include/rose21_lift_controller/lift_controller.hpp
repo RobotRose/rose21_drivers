@@ -39,7 +39,7 @@
 #define LIFT_CONTROLLER_GET_POS_PERCENTAGE          "201" // (lift position 0-100%)
 #define LIFT_CONTROLLER_GET_SAFETY_INPUT            "202" // (safety input value)
 #define LIFT_CONTROLLER_GET_EXTRA_INPUT             "203" // (extra input value)
-#define LIFT_CONTROLLER_GET_SAFETY_STATE            "204" // (safety input, 3v3 OK, 5v OK, Vin OK, moving to button position)
+#define LIFT_CONTROLLER_GET_SAFETY_STATE            "204" // (safety input, 3v3 OK, 5v OK, Vin OK, button_enable_override, last_alarm)
 #define LIFT_CONTROLLER_GET_ADC_RAW                 "205" // (actual, average, min, max)
 #define LIFT_CONTROLLER_GET_ADC_VOL                 "206" // (actual, average, min, max)
 #define LIFT_CONTROLLER_GET_ADC_ENG                 "207" // (average, min, max)
