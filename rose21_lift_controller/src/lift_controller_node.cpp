@@ -22,26 +22,12 @@ int main(int argc, char *argv[])
     ros::NodeHandle n_private("~");
     ros::Rate r(50);
 
-    // Retrieve port and baudrate parameters
-    string serial_port      = "";
-    int baudrate            = 0;
+    // Retrieve test parameter
     bool test               = false;
-    if(!n_private.getParam("serial_port", serial_port))
-    {
-        ROS_ERROR_NAMED(ROS_NAME, "Parameter serial_port must be specified.");
-        return 1;
-    }
-
-    if(!n_private.getParam("baudrate", baudrate))
-    {
-        ROS_ERROR_NAMED(ROS_NAME, "Parameter baudrate must be specified.");
-        return 1;
-    }
-
     n_private.getParam("test", test);
 
 
-    LiftController* lift_controller = new LiftController(ROS_NAME, n, serial_port, baudrate);
+    LiftController* lift_controller = new LiftController();
 
     bool    duurtest = false;
     bool    toggle   = true;

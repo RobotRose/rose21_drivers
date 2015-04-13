@@ -15,15 +15,19 @@
 
 using namespace std;
 
-LiftController::LiftController(string name, ros::NodeHandle n, string serial_port, int baudrate)
+LiftController::LiftController()
     : HardwareController<Serial>()
+    , n_(ros::NodeHandle())
+    , name_(ros::this_node::getName())
     , controller_enabled_(false)
     , requested_controller_enabled_(false)
     , sh_emergency_(SharedVariable<bool>("emergency"))
+    , float_scale_(-1)
+    , no_alarm_(false)
 {
-    n_                      = n;
-    name_                   = name;
-    comm_interface_         = Serial(name, serial_port, baudrate);
+    loadParameters();
+
+    comm_interface_         = Serial(name_, serial_port_, baud_rate_);
 
     // Publishers
     lift_pub_               = n_.advertise<rose_base_msgs::lift_state>("/lift_controller/lift/state", 1, true);
@@ -142,6 +146,35 @@ LiftController::~LiftController()
     ROS_INFO_NAMED(ROS_NAME, "Stopped %s", name_.c_str());
 }
 
+void LiftController::loadParameters()
+{
+    // Get a private nodehandle to load the configurable parameters
+    ros::NodeHandle pn = ros::NodeHandle("~");
+
+    ROS_INFO_NAMED(ROS_NAME, "Loading '%s' parameters.", name_.c_str());
+
+    ROS_ASSERT_MSG(pn.getParam("serial_port",       serial_port_), "Parameter serial_port must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("baud_rate",         baud_rate_), "Parameter baud_rate must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("major_version",     major_version_), "Parameter major_version must be specified.");     //! @todo OH [IMPR]: Move this such it is an configurable from the hardware controller.
+    ROS_ASSERT_MSG(pn.getParam("minor_version",     minor_version_), "Parameter minor_version must be specified.");     //! @todo OH [IMPR]: Move this such it is an configurable from the hardware controller.
+
+    ROS_ASSERT_MSG(pn.getParam("lift/min_pos",      lift_min_pos_), "Parameter lift/min_pos must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/max_pos",      lift_max_pos_), "Parameter lift/max_pos must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/min_speed",    lift_min_speed_), "Parameter lift/min_speed must be specified.");  // [0-255]
+    ROS_ASSERT_MSG(pn.getParam("lift/max_speed",    lift_max_speed_), "Parameter lift/max_speed must be specified.");  // [0-255]
+    
+    ROS_ASSERT_MSG(pn.getParam("lift/p",            lift_p_), "Parameter lift/p must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/i",            lift_i_), "Parameter lift/i must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/i_lim",        lift_i_lim_), "Parameter lift/i_lim must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/p_scale",      lift_p_scale_), "Parameter lift/p_scale must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/i_scale",      lift_i_scale_), "Parameter lift/i_scale must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/hysteresis",   lift_hysteresis_), "Parameter lift/hysteresis must be specified.");
+
+
+    ROS_INFO_NAMED(ROS_NAME, "Loaded '%s' parameters.", name_.c_str());
+}
+
+
 void LiftController::publishLiftState()
 {
     rose_base_msgs::lift_state lift_state;
@@ -209,15 +242,21 @@ bool LiftController::enable()
     if(!checkControllerID(LIFT_CONTROL_FIRMWARE_ID)) 
         return false;
 
-    if(!checkFirmwareVersion(LIFT_CONTROL_FIRMWARE_MAJOR_VERSION, LIFT_CONTROL_FIRMWARE_MINOR_VERSION)) 
+    if(!checkFirmwareVersion(major_version_, minor_version_)) 
         return false;
 
     ROS_INFO_NAMED(ROS_NAME, "Lift and bumper controller controller with firmware version %d.%d connected.", received_firmware_major_version_, received_firmware_minor_version_);
 
-
-    if(!setDefaults())
+    if( not getFloatScale() )
     {
-        ROS_WARN_NAMED(ROS_NAME, "Could not set default parameters for lift and bumper controller, controller has not enabled.");
+        ROS_WARN_NAMED(ROS_NAME, "Could not get float scaling parameter for lift and bumper controller, controller will not be enabled.");
+        return false;
+    }
+
+    if( not setParameters() )
+    {
+        ROS_WARN_NAMED(ROS_NAME, "Could not set default parameters for lift and bumper controller, controller will not be  not enabled.");
+        return false;
     }
 
     int controller_enabled_integer = 0;
@@ -313,11 +352,12 @@ void LiftController::resetState()
     serial_debug_                   = 0;
 }
 
-bool LiftController::setDefaults()
+bool LiftController::setParameters()
 {
     bool all_success = true;
-    all_success = setMinMaxLiftPosition(LIFT_CONTROLLER_MIN_LIFT_POSITION + 1, LIFT_CONTROLLER_MAX_LIFT_POSITION) && all_success;
-    all_success = setMinMaxLiftSpeed(LIFT_CONTROLLER_MIN_LIFT_SPEED, LIFT_CONTROLLER_MAX_LIFT_SPEED) && all_success;
+    all_success = setMinMaxLiftPosition(lift_min_pos_, lift_max_pos_) && all_success;
+    all_success = setMinMaxLiftSpeed(lift_min_speed_, lift_max_speed_) && all_success;
+    all_success = setControllerParameters(lift_p_, lift_i_, lift_i_lim_, lift_p_scale_, lift_i_scale_, lift_hysteresis_) && all_success;
     return all_success;
 }
 
@@ -340,7 +380,8 @@ void LiftController::showState()
     ROS_INFO_NAMED(ROS_NAME, "Lift Position                 : %d", cur_position_);
     ROS_INFO_NAMED(ROS_NAME, "Lift Position                 : %d%%", cur_position_percentage_);
     ROS_INFO_NAMED(ROS_NAME, "Lift Position Error           : %d", cur_position_error_);
-    ROS_INFO_NAMED(ROS_NAME, "Is in postition               : %d", is_in_position_);
+    ROS_INFO_NAMED(ROS_NAME, "Lift P|I|PI|DUTY|DIRECTION    : %3.3f|%3.3f|%3.3f|%d|%d", lift_p_cmd_, lift_i_cmd_, lift_pi_cmd_, lift_duty_cycle_, lift_direction_);
+    ROS_INFO_NAMED(ROS_NAME, "Is in position                : %d", is_in_position_);
     ROS_INFO_NAMED(ROS_NAME, "Is moving                     : %d", is_moving_);
     ROS_INFO_NAMED(ROS_NAME, "MIN/MAX position              : %d/%d", min_lift_position_, max_lift_position_);
     ROS_INFO_NAMED(ROS_NAME, "MIN/MAX speed                 : %d/%d", min_lift_speed_, max_lift_speed_);
@@ -386,6 +427,7 @@ bool LiftController::update()
     all_success = getSetPositionPercentage() && all_success;
     all_success = getSetSpeed() && all_success;
     all_success = getSetSpeedPercentage() && all_success;
+    all_success = getControllerStatus() && all_success;
     // all_success = getADCINT() && all_success; //! @todo OH: 
 
     handleSafety(); //! @todo OH: HACK should this be in update?
@@ -393,13 +435,33 @@ bool LiftController::update()
     return all_success;
 }
 
-//! @todo OH: HACK
+//! @todo OH [IMPR]: Hack, what about all other safety states.
 void LiftController::handleSafety()
 {
+    // Emergency input and button
     if(safety_input_state_ == 1 or safety_state_[0] == 1)
     {
-        ROS_WARN_NAMED(ROS_NAME, "Emergency stop pressed, wheels will be powered down.");
+        ROS_WARN_THROTTLE_NAMED(0.1, ROS_NAME, "Emergency stop activated, wheels will be powered down.");
         sh_emergency_ = true;
+    }
+
+    // Process alarm state
+    switch(safety_state_[5])
+    {
+        case 0:     // All OK
+            break;
+        case 1:     // Watchdog error
+            no_alarm_ = false;
+            ROS_WARN_THROTTLE_NAMED(0.1, ROS_NAME, "The lift controller reported an watchdog error.");
+            break;
+        case 2:     // Force stop motor received
+            ROS_WARN_THROTTLE_NAMED(0.1, ROS_NAME, "The lift controller reported an forced motor stop.");
+            no_alarm_ = false;
+            break;
+        default:
+            ROS_ERROR_THROTTLE_NAMED(0.1, ROS_NAME, "The lift controller reported an unknown error code.");
+            no_alarm_ = false;
+            break;
     }
 }
 
@@ -626,6 +688,41 @@ bool LiftController::getSetSpeedPercentage()
     return getValue(LIFT_CONTROLLER_GET_SET_SPEED_PERCENTAGE, HARDWARE_CONTROL_TIMEOUT, set_lift_speed_percentage_);
 }
 
+bool LiftController::getFloatScale()
+{
+    float_scale_ = -1;
+    return getValue(LIFT_CONTROLLER_GET_FLOAT_SCALE, HARDWARE_CONTROL_TIMEOUT, float_scale_);
+}
+
+bool LiftController::getControllerStatus()
+{
+    ControllerResponse response(LIFT_CONTROLLER_GET_CONTROLLER_STATUS, HARDWARE_CONTROL_TIMEOUT);
+
+    response.addExpectedDataItem(ControllerData(lift_p_cmd_int_));
+    response.addExpectedDataItem(ControllerData(lift_i_cmd_int_));
+    response.addExpectedDataItem(ControllerData(lift_pi_cmd_int_));
+    response.addExpectedDataItem(ControllerData(lift_duty_cycle_));
+    response.addExpectedDataItem(ControllerData(lift_direction_));
+    ControllerCommand  command(LIFT_CONTROLLER_GET_CONTROLLER_STATUS, response);
+
+    if(executeCommand(command))
+    {
+        lift_p_cmd_     = lift_p_cmd_int_/float_scale_;
+        lift_i_cmd_     = lift_i_cmd_int_/float_scale_;
+        lift_pi_cmd_    = lift_pi_cmd_int_/float_scale_;
+        return true;
+    }
+    else
+    {
+        lift_p_cmd_     = 0.0;
+        lift_i_cmd_     = 0.0;
+        lift_pi_cmd_    = 0.0;
+        lift_duty_cycle_ = 0.0;
+        lift_direction_  = 666; 
+        return false;
+    }
+}
+
 // === SETTERS === 
 
 bool LiftController::setSafetyOutput(bool state)
@@ -644,11 +741,38 @@ bool LiftController::setExtraOutput(bool state)
         return setValue(LIFT_CONTROLLER_SET_EXTRA_OUTPUT, HARDWARE_CONTROL_TIMEOUT, 0, extra_output_state_);
 }
 
+bool LiftController::setControllerParameters(double p, double i, int i_lim, int p_scale, int i_scale, int hysteresis)
+{
+    if(float_scale_ == -1)
+    {
+        ROS_WARN_NAMED(ROS_NAME, "setControllerParameters: Float scale was not set.");      
+        return false;
+    }
+
+    ControllerResponse response(LIFT_CONTROLLER_SET_CONTROLLER_PARAMS, HARDWARE_CONTROL_TIMEOUT);
+    response.addExpectedDataItem(ControllerData(p*float_scale_, "Setting 'p' unsuccessful."));
+    response.addExpectedDataItem(ControllerData(i*float_scale_, "Setting 'i' unsuccessful."));
+    response.addExpectedDataItem(ControllerData(i_lim,          "Setting 'i_lim' unsuccessful."));
+    response.addExpectedDataItem(ControllerData(p_scale,        "Setting 'p_scale' unsuccessful."));
+    response.addExpectedDataItem(ControllerData(i_scale,        "Setting 'i_scale' unsuccessful."));
+    response.addExpectedDataItem(ControllerData(hysteresis,     "Setting 'hysteresis' unsuccessful."));
+    ControllerCommand  command(LIFT_CONTROLLER_SET_CONTROLLER_PARAMS, response);
+    command.addDataItem(p*float_scale_);
+    command.addDataItem(i*float_scale_);
+    command.addDataItem(i_lim);
+    command.addDataItem(p_scale);
+    command.addDataItem(i_scale);
+    command.addDataItem(hysteresis);
+
+    return executeCommand(command);
+}
+
+
 bool LiftController::setMinMaxLiftPosition(int min_position, int max_position)
 {
     ControllerResponse response(LIFT_CONTROLLER_SET_MINMAX_MOTOR_POS, HARDWARE_CONTROL_TIMEOUT);
-    response.addExpectedDataItem(ControllerData(min_position, min_lift_position_, "Setting minimal motor position unsuccessfull."));
-    response.addExpectedDataItem(ControllerData(max_position, max_lift_position_, "Setting maximal motor position unsuccessfull."));
+    response.addExpectedDataItem(ControllerData(min_position, min_lift_position_, "Setting minimal motor position unsuccessful."));
+    response.addExpectedDataItem(ControllerData(max_position, max_lift_position_, "Setting maximal motor position unsuccessful."));
     ControllerCommand  command(LIFT_CONTROLLER_SET_MINMAX_MOTOR_POS, response);
     command.addDataItem(min_position);
     command.addDataItem(max_position);
@@ -659,8 +783,8 @@ bool LiftController::setMinMaxLiftPosition(int min_position, int max_position)
 bool LiftController::setMinMaxLiftSpeed(int min_speed, int max_speed)
 {
     ControllerResponse response(LIFT_CONTROLLER_SET_MINMAX_MOTOR_SPEED, HARDWARE_CONTROL_TIMEOUT);
-    response.addExpectedDataItem(ControllerData(min_speed, min_lift_speed_, "Setting minimal motor speed unsuccessfull."));
-    response.addExpectedDataItem(ControllerData(max_speed, max_lift_speed_, "Setting maximal motor speed unsuccessfull."));
+    response.addExpectedDataItem(ControllerData(min_speed, min_lift_speed_, "Setting minimal motor speed unsuccessful."));
+    response.addExpectedDataItem(ControllerData(max_speed, max_lift_speed_, "Setting maximal motor speed unsuccessful."));
     ControllerCommand  command(LIFT_CONTROLLER_SET_MINMAX_MOTOR_SPEED, response);
     command.addDataItem(min_speed);
     command.addDataItem(max_speed);
@@ -695,5 +819,8 @@ void LiftController::CB_SetControllerState(const std_msgs::Bool::ConstPtr& enabl
 
 void LiftController::CB_LiftPositionRequest(const rose_base_msgs::lift_command::ConstPtr& lift_command)
 {
-    setPose(lift_command->speed_percentage, 100.0 - lift_command->position_percentage); 
+    if(no_alarm_)
+        setPose(lift_command->speed_percentage, 100.0 - lift_command->position_percentage); 
+    else
+        ROS_WARN_NAMED(ROS_NAME, "Not setting requested lift position due to alarm state. (Alarm code: %d)", safety_state_[5]);
 }

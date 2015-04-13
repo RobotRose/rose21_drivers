@@ -39,7 +39,7 @@
 #define LIFT_CONTROLLER_GET_POS_PERCENTAGE          "201" // (lift position 0-100%)
 #define LIFT_CONTROLLER_GET_SAFETY_INPUT            "202" // (safety input value)
 #define LIFT_CONTROLLER_GET_EXTRA_INPUT             "203" // (extra input value)
-#define LIFT_CONTROLLER_GET_SAFETY_STATE            "204" // (safety input, 3v3 OK, 5v OK, Vin OK, moving to button position)
+#define LIFT_CONTROLLER_GET_SAFETY_STATE            "204" // (safety input, 3v3 OK, 5v OK, Vin OK, button_enable_override, last_alarm)
 #define LIFT_CONTROLLER_GET_ADC_RAW                 "205" // (actual, average, min, max)
 #define LIFT_CONTROLLER_GET_ADC_VOL                 "206" // (actual, average, min, max)
 #define LIFT_CONTROLLER_GET_ADC_ENG                 "207" // (average, min, max)
@@ -50,16 +50,19 @@
 #define LIFT_CONTROLLER_GET_IS_IN_POSITION          "212" // (bool)
 #define LIFT_CONTROLLER_GET_IS_MOVING               "213" // (bool)
 #define LIFT_CONTROLLER_GET_SERIAL_DEBUG_MODE       "214" // (bool)
-#define LIFT_CONTROLLER_GET_SET_POS                 "215" // (position 200-3400)
-#define LIFT_CONTROLLER_GET_SET_POS_PERCENTAGE      "216" // (0-100%)
-#define LIFT_CONTROLLER_GET_SET_SPEED               "217" // (speed 0-255)
-#define LIFT_CONTROLLER_GET_SET_SPEED_PERCENTAGE    "218" // (0-100%)
+#define LIFT_CONTROLLER_GET_SET_POS                 "215" // (int position 200-3400)
+#define LIFT_CONTROLLER_GET_SET_POS_PERCENTAGE      "216" // (int 0-100%)
+#define LIFT_CONTROLLER_GET_SET_SPEED               "217" // (int speed 0-192)
+#define LIFT_CONTROLLER_GET_SET_SPEED_PERCENTAGE    "218" // (int 0-100%)
+#define LIFT_CONTROLLER_GET_FLOAT_SCALE             "219" // (int)
+#define LIFT_CONTROLLER_GET_CONTROLLER_STATUS       "220" // (double, double, double, int, int)  | P_cmd, I_cmd, PI_cmd, duty_cycle, motor_direction
 
 // Set commands
 #define LIFT_CONTROLLER_SET_SAFETY_OUTPUT       "300" // bool                                -> bool (set value)
 #define LIFT_CONTROLLER_SET_EXTRA_OUTPUT        "301" // bool                                -> bool (set value)
-#define LIFT_CONTROLLER_SET_MINMAX_MOTOR_POS    "302" // int, int (200-3400, 200-3400)       -> int, int (set values)
+#define LIFT_CONTROLLER_SET_MINMAX_MOTOR_POS    "302" // int, int                            -> int, int (set values)
 #define LIFT_CONTROLLER_SET_MINMAX_MOTOR_SPEED  "303" // int, int (0-255, 0-255)             -> int, int (set values)
+#define LIFT_CONTROLLER_SET_CONTROLLER_PARAMS   "304" // double, double, int, int, int         -> double, double, int, int, int  | P, I, I_lim, P_scale, I_scale, Hysteresis
 
 // Other commands
 #define LIFT_CONTROLLER_ENABLE                  "400" // bool (enabled/disabled)                 -> bool (enabled/disabled)
@@ -74,14 +77,6 @@
 // Platform properties
 #define LIFT_CONTROLLER_CLK_FREQ                80000000.0      // [Hz] -> 80Mhz
 #define LIFT_CONTROL_FIRMWARE_ID                2
-#define LIFT_CONTROL_FIRMWARE_MAJOR_VERSION     3
-#define LIFT_CONTROL_FIRMWARE_MINOR_VERSION     3
-
-// Default parameters
-#define LIFT_CONTROLLER_MIN_LIFT_POSITION                      1995//1900//1900         // [200-3400]
-#define LIFT_CONTROLLER_MAX_LIFT_POSITION                      2500//2200//3000        // [200-3400]
-#define LIFT_CONTROLLER_MIN_LIFT_SPEED                         90          // [0-255]
-#define LIFT_CONTROLLER_MAX_LIFT_SPEED                         220         // [0-255]
 
 using namespace std;
 using namespace rose_shared_variables;
@@ -90,7 +85,7 @@ class LiftController : public HardwareController<Serial>
 {
   public:
     // Functions
-    LiftController(string name, ros::NodeHandle n, string serial_port, int baudrate);
+    LiftController();
     ~LiftController();
 
     void    publishLiftState();
@@ -100,7 +95,7 @@ class LiftController : public HardwareController<Serial>
     bool    disable();
     bool    isEnabled();
     void    resetState();
-    bool    setDefaults();
+    bool    setParameters();
     void    showState();
     bool    update();
     bool    getRequestedEnabledState();
@@ -135,10 +130,13 @@ class LiftController : public HardwareController<Serial>
     bool    getSetPositionPercentage();
     bool    getSetSpeed();
     bool    getSetSpeedPercentage();
+    bool    getFloatScale();
+    bool    getControllerStatus();
 
     bool    setSafetyOutput(bool state);
     bool    setExtraOutput(bool state);
 
+    bool    setControllerParameters(double p, double i, int i_lim, int p_scale, int i_scale, int hysteresis);
     bool    setMinMaxLiftPosition(int min_position, int max_position);
     bool    setMinMaxLiftSpeed(int min_speed, int max_speed);
 
@@ -184,24 +182,53 @@ class LiftController : public HardwareController<Serial>
 
   protected:
     // Functions
-    
+    void                    loadParameters();
 
     // Callbacks
     void                    CB_SetControllerState(const std_msgs::Bool::ConstPtr& enable);
     void                    CB_LiftPositionRequest(const rose_base_msgs::lift_command::ConstPtr& lift_command);
 
     // Variables
+    ros::NodeHandle         n_;
+    std::string             name_;
+
     ros::Publisher          lift_pub_;
     ros::Publisher          bumpers_pub_;
     ros::Publisher          bumpers2_pub_;
     ros::Subscriber         lift_controller_enable_sub_;
     ros::Subscriber         lift_position_request_sub_;
 
+    std::string serial_port_;
+    int         baud_rate_;
+    int         major_version_;
+    int         minor_version_;
+
+    int lift_min_pos_;
+    int lift_max_pos_;
+    int lift_min_speed_;
+    int lift_max_speed_;
+    int float_scale_;
+    double lift_p_;
+    double lift_i_;
+    int lift_i_lim_;
+    int lift_p_scale_;
+    int lift_i_scale_;
+    int lift_hysteresis_;
+
+    int lift_p_cmd_int_;
+    int lift_i_cmd_int_;
+    int lift_pi_cmd_int_;
+    double lift_p_cmd_;
+    double lift_i_cmd_;
+    double lift_pi_cmd_;
+    int lift_duty_cycle_;
+    int lift_direction_;
+
+    bool no_alarm_;    
+
     std::map<int, std::vector<rose_geometry::Point>> bumper_footprints_;
 
-    SharedVariable<bool>    sh_emergency_;
-
-    
+    SharedVariable<bool>    sh_emergency_;    
 };
 
 #endif // LIFT_CONTROLLER_HPP

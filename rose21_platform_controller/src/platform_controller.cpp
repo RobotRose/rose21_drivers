@@ -81,6 +81,8 @@ void PlatformController::loadParameters()
 {
     // Get a private nodehandle to load the configurable parameters
     ros::NodeHandle pn = ros::NodeHandle("~");
+    
+    ROS_INFO_NAMED(ROS_NAME, "Loading '%s' parameters.", name_.c_str());
 
     ROS_ASSERT_MSG(pn.getParam("serial_port", serial_port_), "Parameter serial_port must be specified.");
     ROS_ASSERT_MSG(pn.getParam("baud_rate", baud_rate_), "Parameter baud_rate must be specified.");
@@ -110,8 +112,7 @@ void PlatformController::loadParameters()
     pn.param("error/connection_timeout",           connection_timeout_,         400);        // [ms]
     pn.param("error/abs_encoder_timeout",          abs_encoder_timeout_,        75);         // [ms]
 
-
-    ROS_INFO_NAMED(ROS_NAME, "Loaded '%s' parameters", name_.c_str());
+    ROS_INFO_NAMED(ROS_NAME, "Loaded '%s' parameters.", name_.c_str());
 }
 
 bool PlatformController::update()
