@@ -822,5 +822,5 @@ void LiftController::CB_LiftPositionRequest(const rose_base_msgs::lift_command::
     if(no_alarm_)
         setPose(lift_command->speed_percentage, 100.0 - lift_command->position_percentage); 
     else
-        ROSE_WARN_NAMED(ROS_NAME, "Not setting requested lift position due to alarm state. (Alarm code: %d)", safety_state_[5]);
+        ROS_WARN_NAMED(ROS_NAME, "Not setting requested lift position due to alarm state. (Alarm code: %d)", safety_state_[5]);
 }
