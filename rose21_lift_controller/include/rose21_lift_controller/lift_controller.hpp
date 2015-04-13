@@ -223,13 +223,12 @@ class LiftController : public HardwareController<Serial>
     double lift_pi_cmd_;
     int lift_duty_cycle_;
     int lift_direction_;
-    
+
+    bool no_alarm_;    
 
     std::map<int, std::vector<rose_geometry::Point>> bumper_footprints_;
 
-    SharedVariable<bool>    sh_emergency_;
-
-    
+    SharedVariable<bool>    sh_emergency_;    
 };
 
 #endif // LIFT_CONTROLLER_HPP
