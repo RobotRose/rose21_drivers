@@ -228,8 +228,7 @@ class LiftController : public HardwareController<Serial>
     int lift_duty_cycle_;
     int lift_direction_;
 
-    std::string lift_base_link_;
-    std::string lift_top_link_;
+    std::string base_joint_;
     double      lift_length_;
     double      lift_arm_length_;
     double      motor_lift_distance_;

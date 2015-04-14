@@ -171,8 +171,7 @@ void LiftController::loadParameters()
     ROS_ASSERT_MSG(pn.getParam("lift/i_scale",      lift_i_scale_), "Parameter lift/i_scale must be specified.");
     ROS_ASSERT_MSG(pn.getParam("lift/hysteresis",   lift_hysteresis_), "Parameter lift/hysteresis must be specified.");
 
-    ROS_ASSERT_MSG(pn.getParam("lift/base_link",            lift_base_link_), "Parameter lift/base_link must be specified.");
-    ROS_ASSERT_MSG(pn.getParam("lift/top_link",             lift_top_link_), "Parameter lift/top_link must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/base_joint",           base_joint_), "Parameter lift/base_joint must be specified.");
     ROS_ASSERT_MSG(pn.getParam("lift/length",               lift_length_), "Parameter lift/length must be specified.");     
     ROS_ASSERT_MSG(pn.getParam("lift/arm_length",           lift_arm_length_), "Parameter lift/arm_length must be specified.");   
     ROS_ASSERT_MSG(pn.getParam("lift/motor_lift_distance",  motor_lift_distance_), "Parameter lift/motor_lift_distance must be specified.");   
@@ -191,7 +190,7 @@ sensor_msgs::JointState LiftController::calculateLiftJointAngles(int position)
     // a = -acos((b^2+D^2-L^2)/(2 b D))
     // a =  acos((b^2+D^2-L^2)/(2 b D))
 
-    // a is the angle of the arm with the horizontal at the lift_base_link_
+    // a is the angle of the arm with the horizontal at the base_joint
     // c is the angle of the lift_top_link_
     // L is the length of the motor.
     // b is the distance between the rotation point of the lift and the mounting point of the motor
@@ -203,27 +202,21 @@ sensor_msgs::JointState LiftController::calculateLiftJointAngles(int position)
     double b = motor_lift_distance_;             //! @todo OH [IMPR]: extract from robot model?
     double D = lift_arm_length_;                 //! @todo OH [IMPR]: extract from robot model?
 
-    // We take the positive solution because this is the one the lift will be in
-    double a = acos((b*b + D*D - L*L) / (2.0*b*D));
+    // We take the negative solution because the x direction is in the direction of the front of the robot
+    double a = -acos((b*b + D*D - L*L) / (2.0*b*D));
 
     ROS_DEBUG("Position: %d | L: %.4fm | b: %.4fm | D: %.4fm | a without fixed: %.4frad | a with fixed: %.4frad", position, L, b, D, a, a + arm_lift_angle_);
     
     // We add the fixed angle
     a += arm_lift_angle_;
-    // The top link is simply the negative bottom angle
-    double c = -a;
 
     // Now publish the joint angle
     sensor_msgs::JointState joint_states;
     joint_states.header.stamp = ros::Time::now();
 
-    // Set lift_base_link_
-    joint_states.name.push_back(lift_base_link_);
+    // Set base_joint
+    joint_states.name.push_back(base_joint_);
     joint_states.position.push_back(a);
-
-    // Set lift_top_link_
-    joint_states.name.push_back(lift_top_link_);
-    joint_states.position.push_back(c);
 
     return joint_states;
 }
