@@ -231,6 +231,7 @@ sensor_msgs::JointState LiftController::calculateLiftJointAngles(int position)
 
 void LiftController::publishLiftState()
 {
+    //! @todo OH [IMPR]: Only publish if changed.
     joint_states_pub_.publish(calculateLiftJointAngles(cur_position_));
 }
 
