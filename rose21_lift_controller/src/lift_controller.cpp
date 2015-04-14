@@ -176,6 +176,7 @@ void LiftController::loadParameters()
     ROS_ASSERT_MSG(pn.getParam("lift/length",               lift_length_), "Parameter lift/length must be specified.");     
     ROS_ASSERT_MSG(pn.getParam("lift/arm_length",           lift_arm_length_), "Parameter lift/arm_length must be specified.");   
     ROS_ASSERT_MSG(pn.getParam("lift/motor_lift_distance",  motor_lift_distance_), "Parameter lift/motor_lift_distance must be specified.");   
+    ROS_ASSERT_MSG(pn.getParam("lift/motor_base_length",    motor_base_length_), "Parameter lift/motor_base_length must be specified.");   
     ROS_ASSERT_MSG(pn.getParam("lift/arm_lift_angle",       arm_lift_angle_), "Parameter lift/arm_lift_angle must be specified.");    
 
     ROS_ASSERT_MSG(pn.getParam("lift/pos_length_factor",    pos_length_factor_), "Parameter lift/pos_length_factor must be specified.");
@@ -183,7 +184,7 @@ void LiftController::loadParameters()
     ROS_INFO_NAMED(ROS_NAME, "Loaded '%s' parameters.", name_.c_str());
 }
 
-sensor_msgs::JointState LiftController::calculateLiftJointAngles(int position_percentage)
+sensor_msgs::JointState LiftController::calculateLiftJointAngles(int position)
 {
     // This was solved by wolfram alpha: solve( D*sin(a) = sqrt( (L^2 - (b - cos(a)*D)^2)),a)
     // Giving:
@@ -198,15 +199,15 @@ sensor_msgs::JointState LiftController::calculateLiftJointAngles(int position_pe
     // arm_lift_angle_ will be the fixed angle between the arm and the lift
     // lift_length_ will be length of the upper part of the lift    //! @todo OH [IMPR]: extract from robot model?
 
-    double linmotor_min_length_ = lift_min_pos_/pos_length_factor_;
-    double linmotor_max_length_ = lift_max_pos_/pos_length_factor_;
-    double L = linmotor_min_length_ + ((double)position_percentage)*(linmotor_max_length_ - linmotor_min_length_);
+    double L = motor_base_length_ + ((double)position)/pos_length_factor_;
     double b = motor_lift_distance_;             //! @todo OH [IMPR]: extract from robot model?
     double D = lift_arm_length_;                 //! @todo OH [IMPR]: extract from robot model?
 
     // We take the positive solution because this is the one the lift will be in
     double a = acos((b*b + D*D - L*L) / (2.0*b*D));
 
+    ROS_DEBUG("Position: %d | L: %.4fm | b: %.4fm | D: %.4fm | a without fixed: %.4frad | a with fixed: %.4frad", position, L, b, D, a, a + arm_lift_angle_);
+    
     // We add the fixed angle
     a += arm_lift_angle_;
     // The top link is simply the negative bottom angle
@@ -230,7 +231,7 @@ sensor_msgs::JointState LiftController::calculateLiftJointAngles(int position_pe
 
 void LiftController::publishLiftState()
 {
-    joint_states_pub_.publish(calculateLiftJointAngles(cur_position_percentage_));
+    joint_states_pub_.publish(calculateLiftJointAngles(cur_position_));
 }
 
 void LiftController::publishBumpersState()

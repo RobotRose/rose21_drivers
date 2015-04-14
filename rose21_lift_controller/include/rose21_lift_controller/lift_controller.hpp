@@ -90,7 +90,7 @@ class LiftController : public HardwareController<Serial>
     LiftController();
     ~LiftController();
 
-    sensor_msgs::JointState calculateLiftJointAngles(int position_percentage);
+    sensor_msgs::JointState calculateLiftJointAngles(int position);
     void    publishLiftState();
     void    publishBumpersState();
 
@@ -233,6 +233,7 @@ class LiftController : public HardwareController<Serial>
     double      lift_length_;
     double      lift_arm_length_;
     double      motor_lift_distance_;
+    double      motor_base_length_;
     double      arm_lift_angle_;
     double      pos_length_factor_;
 
