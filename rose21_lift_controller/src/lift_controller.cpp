@@ -31,6 +31,7 @@ LiftController::LiftController()
 
     // Publishers
     lift_pub_               = n_.advertise<rose_base_msgs::lift_state>("/lift_controller/lift/state", 1, true);
+    joint_states_pub_       = n_.advertise<sensor_msgs::JointState>("/lift_controller/lift/joint_states", 1, true);
     bumpers_pub_            = n_.advertise<rose_base_msgs::bumpers_state>("/lift_controller/bumpers/state", 1, true);
     bumpers2_pub_           = n_.advertise<contact_sensor_msgs::bumpers>("/lift_controller/bumpers2/state", 1, true);
 
@@ -170,22 +171,61 @@ void LiftController::loadParameters()
     ROS_ASSERT_MSG(pn.getParam("lift/i_scale",      lift_i_scale_), "Parameter lift/i_scale must be specified.");
     ROS_ASSERT_MSG(pn.getParam("lift/hysteresis",   lift_hysteresis_), "Parameter lift/hysteresis must be specified.");
 
+    ROS_ASSERT_MSG(pn.getParam("lift/base_joint",           base_joint_), "Parameter lift/base_joint must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/length",               lift_length_), "Parameter lift/length must be specified.");     
+    ROS_ASSERT_MSG(pn.getParam("lift/arm_length",           lift_arm_length_), "Parameter lift/arm_length must be specified.");   
+    ROS_ASSERT_MSG(pn.getParam("lift/motor_lift_distance",  motor_lift_distance_), "Parameter lift/motor_lift_distance must be specified.");   
+    ROS_ASSERT_MSG(pn.getParam("lift/motor_base_length",    motor_base_length_), "Parameter lift/motor_base_length must be specified.");   
+    ROS_ASSERT_MSG(pn.getParam("lift/arm_lift_angle",       arm_lift_angle_), "Parameter lift/arm_lift_angle must be specified.");    
+
+    ROS_ASSERT_MSG(pn.getParam("lift/pos_length_factor",    pos_length_factor_), "Parameter lift/pos_length_factor must be specified.");
 
     ROS_INFO_NAMED(ROS_NAME, "Loaded '%s' parameters.", name_.c_str());
+}
+
+sensor_msgs::JointState LiftController::calculateLiftJointAngles(int position)
+{
+    // This was solved by wolfram alpha: solve( D*sin(a) = sqrt( (L^2 - (b - cos(a)*D)^2)),a)
+    // Giving:
+    // a = -acos((b^2+D^2-L^2)/(2 b D))
+    // a =  acos((b^2+D^2-L^2)/(2 b D))
+
+    // a is the angle of the arm with the horizontal at the base_joint
+    // c is the angle of the lift_top_link_
+    // L is the length of the motor.
+    // b is the distance between the rotation point of the lift and the mounting point of the motor
+    // D is the length of the arm that is attached to to the lift rotating point.
+    // arm_lift_angle_ will be the fixed angle between the arm and the lift
+    // lift_length_ will be length of the upper part of the lift    //! @todo OH [IMPR]: extract from robot model?
+
+    double L = motor_base_length_ + ((double)position)/pos_length_factor_;
+    double b = motor_lift_distance_;             //! @todo OH [IMPR]: extract from robot model?
+    double D = lift_arm_length_;                 //! @todo OH [IMPR]: extract from robot model?
+
+    // We take the negative solution because the x direction is in the direction of the front of the robot
+    double a = -acos((b*b + D*D - L*L) / (2.0*b*D));
+
+    ROS_DEBUG("Position: %d | L: %.4fm | b: %.4fm | D: %.4fm | a without fixed: %.4frad | a with fixed: %.4frad", position, L, b, D, a, a + arm_lift_angle_);
+    
+    // We add the fixed angle
+    a += arm_lift_angle_;
+
+    // Now publish the joint angle
+    sensor_msgs::JointState joint_states;
+    joint_states.header.stamp = ros::Time::now();
+
+    // Set base_joint
+    joint_states.name.push_back(base_joint_);
+    joint_states.position.push_back(a);
+
+    return joint_states;
 }
 
 
 void LiftController::publishLiftState()
 {
-    rose_base_msgs::lift_state lift_state;
-    lift_state.target_position_percentage   = set_lift_position_percentage_;
-    lift_state.position_percentage          = cur_position_percentage_;
-    lift_state.moving                       = is_moving_;
-    lift_state.in_position                  = is_in_position_;
-     
-    lift_pub_.publish(lift_state);
-
-    ROS_DEBUG_NAMED(ROS_NAME, "Published lift status.");
+    //! @todo OH [IMPR]: Only publish if changed.
+    joint_states_pub_.publish(calculateLiftJointAngles(cur_position_));
 }
 
 void LiftController::publishBumpersState()

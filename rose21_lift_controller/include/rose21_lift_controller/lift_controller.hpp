@@ -19,10 +19,12 @@
 
 #include <ros/ros.h>
 
+#include "std_msgs/Bool.h"
+#include "sensor_msgs/JointState.h"
+
 #include "rose_base_msgs/lift_command.h"
 #include "rose_base_msgs/lift_state.h"
 #include "rose_base_msgs/bumpers_state.h"
-#include "std_msgs/Bool.h"
 #include "contact_sensor_msgs/bumper.h"
 #include "contact_sensor_msgs/bumpers.h"
 #include "roscomm/conversion_bool.hpp"
@@ -88,6 +90,7 @@ class LiftController : public HardwareController<Serial>
     LiftController();
     ~LiftController();
 
+    sensor_msgs::JointState calculateLiftJointAngles(int position);
     void    publishLiftState();
     void    publishBumpersState();
 
@@ -193,6 +196,7 @@ class LiftController : public HardwareController<Serial>
     std::string             name_;
 
     ros::Publisher          lift_pub_;
+    ros::Publisher          joint_states_pub_;
     ros::Publisher          bumpers_pub_;
     ros::Publisher          bumpers2_pub_;
     ros::Subscriber         lift_controller_enable_sub_;
@@ -223,6 +227,14 @@ class LiftController : public HardwareController<Serial>
     double lift_pi_cmd_;
     int lift_duty_cycle_;
     int lift_direction_;
+
+    std::string base_joint_;
+    double      lift_length_;
+    double      lift_arm_length_;
+    double      motor_lift_distance_;
+    double      motor_base_length_;
+    double      arm_lift_angle_;
+    double      pos_length_factor_;
 
     bool no_alarm_;    
 
