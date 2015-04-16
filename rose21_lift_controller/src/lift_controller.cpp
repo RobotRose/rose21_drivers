@@ -217,7 +217,6 @@ double LiftController::linearInterpolation(const double& y1, const double& y2, c
     double a    = dy/dx;
     double b    = (-a*x1) + y1;
     double interpolated = (a*x) + b; 
-    ROS_INFO("Linear interpolation: %f | %f | %f | %f | %f -(a: %f,b: %f)-> %f", y1, y2, x1, x2, x, a, b, interpolated);
     return interpolated;
 }
 
@@ -262,9 +261,24 @@ double LiftController::getSensorValue(const double& length)
     return linearInterpolation(first_pair.second, second_pair.second, first_pair.first, second_pair.first, length);
 }
 
-// solve( D*sin(a) = sqrt( (L^2 - (b - cos(a)*D)^2)),L) :
-// L = -sqrt(-2 b D cos(a)+D^2 sin^2(a)+D^2 cos^2(a)+b^2)
-// L =  sqrt(-2 b D cos(a)+D^2 sin^2(a)+D^2 cos^2(a)+b^2)
+
+
+double LiftController::calculateLiftSetPoint(double lift_angle)
+{
+    // This was solved by wolfram alpha:  solve( D*sin(a) = sqrt( (L^2 - (b - cos(a)*D)^2)),L)
+    // Giving:
+    // L = -sqrt(-2 b D cos(a)+D^2 sin^2(a)+D^2 cos^2(a)+b^2)
+    // L =  sqrt(-2 b D cos(a)+D^2 sin^2(a)+D^2 cos^2(a)+b^2)
+    // b is the distance between the rotation point of the lift and the mounting point of the motor
+    // D is the length of the arm that is attached to to the lift rotating point.
+
+    double b = motor_lift_distance_;
+    double D = lift_arm_length_;
+    double angle = lift_angle - arm_lift_angle_;
+    double L = sqrt(-2.0*b*D*cos(angle) + D*D*sin(angle)*sin(angle) + D*D*cos(angle)*cos(angle) + b*b);
+
+    return getSensorValue(L);
+}
 
 sensor_msgs::JointState LiftController::calculateLiftJointAngle(int position)
 {
@@ -286,80 +300,24 @@ sensor_msgs::JointState LiftController::calculateLiftJointAngle(int position)
 
     // We take the negative solution because the x direction is in the direction of the front of the robot
     double a = -acos(((b*b) + (D*D) - (L*L)) / (2.0*b*D));
-
-    // distance between the centers
-    double x = 0.435;
-    double y = 0.096;
-    double distance = sqrt(x*x + y*y);
-    ROS_INFO("Distance: %4fm, D: %4fm, L: %.4fm", distance,D, L);
-    double i1_x, i1_y;
-    double i2_x, i2_y;
-    double p2_x, p2_y;
-
-    p2_x = 0.0;
-    p2_y = 0.0;
-    i1_x = 0.0;
-    i1_y = 0.0;
-    i2_x = 0.0;
-    i2_y = 0.0;
-
-    // find number of solutions
-    if(distance > D + L) // circles are too far apart, no solution(s)
-    {
-        ROS_INFO("Circles are too far apart");
-    }
-    else if(distance == 0 && D == L) // circles coincide
-    {
-        ROS_INFO("Circles coincide");
-    }
-    // one circle contains the other
-    else if(distance + min(D, L) < max(D, L))
-    {
-        ROS_INFO("One circle contains the other");
-    }
-    else
-    {
-        ROS_INFO("Circles intersect");
-
-        double a = (D*D - L*L + distance*distance)/ (2.0*distance);
-        double h = sqrt(D*D - a*a);
-         
-        // find p2
-        p2_x = (a * x) / distance;
-        p2_y = (a * y) / distance;
-         
-        // find intersection points p3
-        i1_x =  p2_x + (h * y/ distance);
-        i1_y =  p2_y - (h * x/ distance);
-       
-        i2_x =  p2_x - (h * y/ distance);
-        i2_y =  p2_y + (h * x/ distance);
-    }
-
-    ROS_INFO("[p2_x, p2_y]:[%.4f, %.4f]", p2_x, p2_y);
-    ROS_INFO("[i1_x, i1_y]:[%.4f, %.4f]", i1_x, i1_y);
-    ROS_INFO("[i2_x, i2_y]:[%.4f, %.4f]", i2_x, i2_y);
-
-    double circle_angle = atan2(y, x);
-    double alternate_1 = -circle_angle + atan2(i1_y, i1_x) + arm_lift_angle_;
-    double alternate_2 = -circle_angle + atan2(i2_y, i2_x) + arm_lift_angle_;
-
-    ROS_INFO("[circle_angle, alternate_1, alternate_2]:[%.4f, %4f, %4f]", (circle_angle*180) / M_PI, (alternate_1*180) / M_PI, (alternate_2*180) / M_PI);
-
-    ROS_INFO("(b*b + D*D - L*L): %f | (2.0*b*D): %f | (b*b + D*D - L*L) / (2.0*b*D): %f", (b*b + D*D - L*L), (2.0*b*D), (b*b + D*D - L*L) / (2.0*b*D));
-    ROS_INFO("Position: %d | L: %.4fm | b: %.4fm | D: %.4fm | a without fixed: %.4frad | a with fixed: %.4frad %.4fdeg", position, L, b, D, a, a + arm_lift_angle_,((a + arm_lift_angle_)* 180) / M_PI);
-    //ROS_ASSERT_MSG(not std::isnan(a), "Calculated joint angle is NaN, this is probably caused by incorrect calibration data.");
-    
     // We add the fixed angle
-    a += arm_lift_angle_;
+    double a_lift = a + arm_lift_angle_;
 
+    // Thus sensor value was: 
+    double sv = calculateLiftSetPoint(a + arm_lift_angle_);
+
+    ROS_DEBUG("Position: %d | L: %.4fm | b: %.4fm | D: %.4fm | a without fixed: %.4frad | a with fixed: %.4frad %.4fdeg, thus sv: %f", position, L, b, D, a, a_lift,((a_lift)* 180) / M_PI, sv);
+
+    if(std::isnan(a_lift))
+        ROS_ERROR("Calculated joint angle is NaN, this is probably caused by incorrect calibration data.");
+    
     // Now publish the joint angle
     sensor_msgs::JointState joint_states;
     joint_states.header.stamp = ros::Time::now();
 
     // Set base_joint
     joint_states.name.push_back(base_joint_);
-    joint_states.position.push_back(a);
+    joint_states.position.push_back(a_lift);
 
     return joint_states;
 }

@@ -90,6 +90,7 @@ class LiftController : public HardwareController<Serial>
     LiftController();
     ~LiftController();
 
+    double calculateLiftSetPoint(double lift_angle);
     sensor_msgs::JointState calculateLiftJointAngle(int position);
     void    publishLiftState();
     void    publishBumpersState();
