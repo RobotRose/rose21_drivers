@@ -449,6 +449,7 @@ void LiftController::handleSafety()
     switch(safety_state_[5])
     {
         case 0:     // All OK
+            no_alarm_ = true;
             break;
         case 1:     // Watchdog error
             no_alarm_ = false;
