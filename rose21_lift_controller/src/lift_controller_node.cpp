@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
         if(rose_conversions::kbhit() && test)
         {
             uint c = getchar();
-            ROS_DEBUG_NAMED(ROS_NAME, "Key pressed: %c", (char)c);
+            ROS_DEBUG("Key pressed: %c", (char)c);
             switch(c)
             {
                 case 'a':   lift_controller->setPose(100, 0);
@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
         if(duurtest)    //! @todo OH: REMOVE
         {
             
-            ROS_INFO_NAMED(ROS_NAME, "Position: %d | Duurtest cnt: %d", lift_controller->getPose() , timescnt);
+            ROS_INFO("Position: %d | Duurtest cnt: %d", lift_controller->getPose() , timescnt);
             if(toggle and lift_controller->getPose() >= 49)
             {
                 lift_controller->setPose(50, 0);
@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
             // Check the watchdog
             if(!lift_controller->checkWatchdog())
             {
-                ROS_WARN_NAMED(ROS_NAME, "Watchdog error, will try to reset communication.");
+                ROS_WARN("Watchdog error, will try to reset communication.");
                 if(!lift_controller->reset())
                     ros::Duration(1.0).sleep(); 
             }
