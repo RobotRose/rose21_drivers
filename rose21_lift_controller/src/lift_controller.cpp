@@ -31,6 +31,7 @@ LiftController::LiftController()
 
     // Publishers
     lift_pub_               = n_.advertise<rose_base_msgs::lift_state>("/lift_controller/lift/state", 1, true);
+    joint_states_pub_       = n_.advertise<sensor_msgs::JointState>("/lift_controller/lift/joint_states", 1, true);
     bumpers_pub_            = n_.advertise<rose_base_msgs::bumpers_state>("/lift_controller/bumpers/state", 1, true);
     bumpers2_pub_           = n_.advertise<contact_sensor_msgs::bumpers>("/lift_controller/bumpers2/state", 1, true);
 
@@ -41,7 +42,7 @@ LiftController::LiftController()
     sh_emergency_.host(false);
     sh_emergency_ = false;
 
-    ROS_INFO_NAMED(ROS_NAME, "Started %s", name_.c_str());
+    ROS_INFO("Started %s", name_.c_str());
 
     // Get the bumper footprints
     //n_p_.getParam("bumper_footprints", bumper_footprints_);
@@ -143,7 +144,7 @@ LiftController::~LiftController()
 {
     disable();
 
-    ROS_INFO_NAMED(ROS_NAME, "Stopped %s", name_.c_str());
+    ROS_INFO("Stopped %s", name_.c_str());
 }
 
 void LiftController::loadParameters()
@@ -151,7 +152,7 @@ void LiftController::loadParameters()
     // Get a private nodehandle to load the configurable parameters
     ros::NodeHandle pn = ros::NodeHandle("~");
 
-    ROS_INFO_NAMED(ROS_NAME, "Loading '%s' parameters.", name_.c_str());
+    ROS_INFO("Loading '%s' parameters.", name_.c_str());
 
     ROS_ASSERT_MSG(pn.getParam("serial_port",       serial_port_), "Parameter serial_port must be specified.");
     ROS_ASSERT_MSG(pn.getParam("baud_rate",         baud_rate_), "Parameter baud_rate must be specified.");
@@ -170,22 +171,162 @@ void LiftController::loadParameters()
     ROS_ASSERT_MSG(pn.getParam("lift/i_scale",      lift_i_scale_), "Parameter lift/i_scale must be specified.");
     ROS_ASSERT_MSG(pn.getParam("lift/hysteresis",   lift_hysteresis_), "Parameter lift/hysteresis must be specified.");
 
+    ROS_ASSERT_MSG(pn.getParam("lift/base_joint",           base_joint_), "Parameter lift/base_joint must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/arm_length",           lift_arm_length_), "Parameter lift/arm_length must be specified.");   
+    ROS_ASSERT_MSG(pn.getParam("lift/motor_lift_distance",  motor_lift_distance_), "Parameter lift/motor_lift_distance must be specified.");   
+    ROS_ASSERT_MSG(pn.getParam("lift/arm_lift_angle",       arm_lift_angle_), "Parameter lift/arm_lift_angle must be specified.");    
 
-    ROS_INFO_NAMED(ROS_NAME, "Loaded '%s' parameters.", name_.c_str());
+    // Load lift sensor calibration
+    ROS_INFO("Loading lift sensor calibration table.");
+    // Construct a map of strings
+    XmlRpc::XmlRpcValue calibration_table;
+
+    // Get the list of lists
+    ROS_ASSERT_MSG(pn.getParam("lift/sensor_calibration", calibration_table), "Parameter lift/sensor_calibration must be specified.");
+    ROS_ASSERT_MSG(calibration_table.getType() == XmlRpc::XmlRpcValue::TypeArray, "Parameter lift/sensor_calibration is not of type 'XmlRpc::XmlRpcValue::TypeArray'.");
+
+    for (int i = 0; i < calibration_table.size(); ++i) 
+    {
+        XmlRpc::XmlRpcValue row = calibration_table[i];
+        ROS_ASSERT_MSG(row.getType() == XmlRpc::XmlRpcValue::TypeArray, "Row is not a list.");
+        ROS_ASSERT_MSG(row.size() == 2, "Incorrect calibration table structure, every row should have two entries ([mm] (double), [sensor reading](int)).");
+        ROS_ASSERT_MSG(row[0].getType() == XmlRpc::XmlRpcValue::TypeDouble, "First value in row should be a double, every row should have two entries ([mm] (double), [sensor reading](int)).");
+        ROS_ASSERT_MSG(row[1].getType() == XmlRpc::XmlRpcValue::TypeInt, "Second value in row should be an integer, every row should have two entries ([mm] (double), [sensor reading](int)).");
+
+        double distance     = static_cast<double>(calibration_table[i][0]);
+        double measurement  = (double)(static_cast<int>(calibration_table[i][1]));
+
+        double factor = measurement/distance;
+        ROS_INFO(" Length: %4.4fm | Sensor: %4.4f | Length/Sensor: %4.4f", distance, measurement, factor);
+
+        sensor_calibration_data_.push_back(std::pair<double, double>(distance, measurement));
+    }
+
+    ROS_ASSERT_MSG(sensor_calibration_data_.size() > 1, "Sensor calibration table should contain at least two entries.");
+
+    // sort sensor calibration data
+    std::sort(sensor_calibration_data_.begin(), sensor_calibration_data_.end());
+
+    ROS_INFO("Loaded '%s' parameters.", name_.c_str());
+}
+
+double LiftController::linearInterpolation(const double& y1, const double& y2, const double& x1, const double& x2, const double& x)
+{
+    double dx   = x2 - x1;
+    double dy   = y2 - y1;
+    double a    = dy/dx;
+    double b    = (-a*x1) + y1;
+    double interpolated = (a*x) + b; 
+    return interpolated;
+}
+
+double LiftController::getMotorLength(const double& measurement)
+{
+    pair<double, double> first_pair;
+    pair<double, double> second_pair;
+
+    for(int i = 1; i < sensor_calibration_data_.size(); ++i)
+    {
+        first_pair     = sensor_calibration_data_[i - 1];
+        second_pair    = sensor_calibration_data_[i];
+        double dx = second_pair.second - first_pair.second;
+
+        if(measurement <= second_pair.second)
+            return linearInterpolation(first_pair.first, second_pair.first, first_pair.second, second_pair.second, measurement);
+    }
+
+    // Return last two pairs interpolation
+    first_pair     = sensor_calibration_data_[sensor_calibration_data_.size() - 2];
+    second_pair    = sensor_calibration_data_[sensor_calibration_data_.size() - 1];
+    return linearInterpolation(first_pair.first, second_pair.first, first_pair.second, second_pair.second, measurement);
+}
+
+double LiftController::getSensorValue(const double& length)
+{
+    pair<double, double> first_pair;
+    pair<double, double> second_pair;
+
+    for(int i = 1; i < sensor_calibration_data_.size(); ++i)
+    {
+        pair<double, double> first_pair     = sensor_calibration_data_[i - 1];
+        pair<double, double> second_pair    = sensor_calibration_data_[i];
+
+        if(length <= second_pair.first)
+            return linearInterpolation(first_pair.second, second_pair.second, first_pair.first, second_pair.first, length);
+    }
+
+    // Return last two pairs interpolation
+    first_pair     = sensor_calibration_data_[sensor_calibration_data_.size() - 2];
+    second_pair    = sensor_calibration_data_[sensor_calibration_data_.size() - 1];
+    return linearInterpolation(first_pair.second, second_pair.second, first_pair.first, second_pair.first, length);
+}
+
+
+
+double LiftController::calculateLiftSetPoint(double lift_angle)
+{
+    // This was solved by wolfram alpha:  solve( D*sin(a) = sqrt( (L^2 - (b - cos(a)*D)^2)),L)
+    // Giving:
+    // L = -sqrt(-2 b D cos(a)+D^2 sin^2(a)+D^2 cos^2(a)+b^2)
+    // L =  sqrt(-2 b D cos(a)+D^2 sin^2(a)+D^2 cos^2(a)+b^2)
+    // b is the distance between the rotation point of the lift and the mounting point of the motor
+    // D is the length of the arm that is attached to to the lift rotating point.
+
+    double b = motor_lift_distance_;
+    double D = lift_arm_length_;
+    double angle = lift_angle - arm_lift_angle_;
+    double L = sqrt(-2.0*b*D*cos(angle) + D*D*sin(angle)*sin(angle) + D*D*cos(angle)*cos(angle) + b*b);
+
+    return getSensorValue(L);
+}
+
+sensor_msgs::JointState LiftController::calculateLiftJointAngle(int position)
+{
+    // This was solved by wolfram alpha: solve( D*sin(a) = sqrt( (L^2 - (b - cos(a)*D)^2)),a)
+    // Giving:
+    // a = -acos((b^2+D^2-L^2)/(2 b D))
+    // a =  acos((b^2+D^2-L^2)/(2 b D))
+
+    // a is the angle of the arm with the horizontal at the base_joint
+    // c is the angle of the lift_top_link_
+    // L is the length of the motor.
+    // b is the distance between the rotation point of the lift and the mounting point of the motor
+    // D is the length of the arm that is attached to to the lift rotating point.
+    // arm_lift_angle_ will be the fixed angle between the arm and the lift
+
+    double L = getMotorLength((double)position);
+    double b = motor_lift_distance_;             //! @todo OH [IMPR]: extract from robot model?
+    double D = lift_arm_length_;                 //! @todo OH [IMPR]: extract from robot model?
+
+    // We take the negative solution because the x direction is in the direction of the front of the robot
+    double a = -acos(((b*b) + (D*D) - (L*L)) / (2.0*b*D));
+    // We add the fixed angle
+    double a_lift = a + arm_lift_angle_;
+
+    // Thus sensor value was: 
+    double sv = calculateLiftSetPoint(a + arm_lift_angle_);
+
+    ROS_DEBUG("Position: %d | L: %.4fm | b: %.4fm | D: %.4fm | a without fixed: %.4frad | a with fixed: %.4frad %.4fdeg, thus sv: %f", position, L, b, D, a, a_lift,((a_lift)* 180) / M_PI, sv);
+
+    if(std::isnan(a_lift))
+        ROS_ERROR("Calculated joint angle is NaN, this is probably caused by incorrect calibration data.");
+    
+    // Now publish the joint angle
+    sensor_msgs::JointState joint_states;
+    joint_states.header.stamp = ros::Time::now();
+
+    // Set base_joint
+    joint_states.name.push_back(base_joint_);
+    joint_states.position.push_back(a_lift);
+
+    return joint_states;
 }
 
 
 void LiftController::publishLiftState()
 {
-    rose_base_msgs::lift_state lift_state;
-    lift_state.target_position_percentage   = set_lift_position_percentage_;
-    lift_state.position_percentage          = cur_position_percentage_;
-    lift_state.moving                       = is_moving_;
-    lift_state.in_position                  = is_in_position_;
-     
-    lift_pub_.publish(lift_state);
-
-    ROS_DEBUG_NAMED(ROS_NAME, "Published lift status.");
+    //! @todo OH [IMPR]: Only publish if changed.
+    joint_states_pub_.publish(calculateLiftJointAngle(cur_position_));
 }
 
 void LiftController::publishBumpersState()
@@ -220,7 +361,7 @@ void LiftController::publishBumpersState()
 
     bumpers2_pub_.publish(bumpers_msg);
 
-    ROS_DEBUG_NAMED(ROS_NAME, "Published bumpers status.");
+    ROS_DEBUG("Published bumpers status.");
 
     // Reset/start communication
     // resetComm();  
@@ -232,7 +373,7 @@ bool LiftController::enable()
     if(controller_enabled_)
         return true;   
 
-    ROS_INFO_NAMED(ROS_NAME, "Enabling lift and bumper controller.");
+    ROS_INFO("Enabling lift and bumper controller.");
     if(!get_comm_interface()->connect())   
         return false;
 
@@ -245,17 +386,17 @@ bool LiftController::enable()
     if(!checkFirmwareVersion(major_version_, minor_version_)) 
         return false;
 
-    ROS_INFO_NAMED(ROS_NAME, "Lift and bumper controller controller with firmware version %d.%d connected.", received_firmware_major_version_, received_firmware_minor_version_);
+    ROS_INFO("Lift and bumper controller controller with firmware version %d.%d connected.", received_firmware_major_version_, received_firmware_minor_version_);
 
     if( not getFloatScale() )
     {
-        ROS_WARN_NAMED(ROS_NAME, "Could not get float scaling parameter for lift and bumper controller, controller will not be enabled.");
+        ROS_WARN("Could not get float scaling parameter for lift and bumper controller, controller will not be enabled.");
         return false;
     }
 
     if( not setParameters() )
     {
-        ROS_WARN_NAMED(ROS_NAME, "Could not set default parameters for lift and bumper controller, controller will not be  not enabled.");
+        ROS_WARN("Could not set default parameters for lift and bumper controller, controller will not be  not enabled.");
         return false;
     }
 
@@ -265,12 +406,12 @@ bool LiftController::enable()
     if (controller_enabled_integer == 1)
     {
         controller_enabled_ = true;      
-        ROS_INFO_NAMED(ROS_NAME, "Lift and bumper controller enabled."); 
+        ROS_INFO("Lift and bumper controller enabled."); 
     }
     else
     {
         controller_enabled_ = false;
-        ROS_WARN_NAMED(ROS_NAME, "Could not enable lift and bumper controller."); 
+        ROS_WARN("Could not enable lift and bumper controller."); 
     }
 
     return controller_enabled_;
@@ -294,12 +435,12 @@ bool LiftController::disable()
     if (controller_enabled_integer  == 0)
     {
         controller_enabled_ = false;
-        ROS_INFO_NAMED(ROS_NAME, "Lift and bumper controller disabled."); 
+        ROS_INFO("Lift and bumper controller disabled."); 
     }
     else
     {
         controller_enabled_ = true;
-        ROS_WARN_NAMED(ROS_NAME, "Could not disable lift and bumper controller."); 
+        ROS_WARN("Could not disable lift and bumper controller."); 
     }
 
     return controller_enabled_;
@@ -363,13 +504,13 @@ bool LiftController::setParameters()
 
 void LiftController::showState()
 {
-    ROS_INFO_NAMED(ROS_NAME, "Enabled                       : %d", controller_enabled_);
-    ROS_INFO_NAMED(ROS_NAME, "Set lift speed                : %d", set_lift_speed_);
-    ROS_INFO_NAMED(ROS_NAME, "Set lift speed                : %d%%", set_lift_speed_percentage_);
-    ROS_INFO_NAMED(ROS_NAME, "Set lift position             : %d", set_lift_position_);
-    ROS_INFO_NAMED(ROS_NAME, "Set lift position             : %d%%", set_lift_position_percentage_);
+    ROS_INFO("Enabled                       : %d", controller_enabled_);
+    ROS_INFO("Set lift speed                : %d", set_lift_speed_);
+    ROS_INFO("Set lift speed                : %d%%", set_lift_speed_percentage_);
+    ROS_INFO("Set lift position             : %d", set_lift_position_);
+    ROS_INFO("Set lift position             : %d%%", set_lift_position_percentage_);
 
-    ROS_INFO_NAMED(ROS_NAME, "Bumper states                 : %d|%d|%d|%d|%d|%d|%d|%d"  , bumper_states_[0]
+    ROS_INFO("Bumper states                 : %d|%d|%d|%d|%d|%d|%d|%d"  , bumper_states_[0]
                                                                                         , bumper_states_[1]
                                                                                         , bumper_states_[2]
                                                                                         , bumper_states_[3]
@@ -377,37 +518,37 @@ void LiftController::showState()
                                                                                         , bumper_states_[5]
                                                                                         , bumper_states_[6]
                                                                                         , bumper_states_[7]);
-    ROS_INFO_NAMED(ROS_NAME, "Lift Position                 : %d", cur_position_);
-    ROS_INFO_NAMED(ROS_NAME, "Lift Position                 : %d%%", cur_position_percentage_);
-    ROS_INFO_NAMED(ROS_NAME, "Lift Position Error           : %d", cur_position_error_);
-    ROS_INFO_NAMED(ROS_NAME, "Lift P|I|PI|DUTY|DIRECTION    : %3.3f|%3.3f|%3.3f|%d|%d", lift_p_cmd_, lift_i_cmd_, lift_pi_cmd_, lift_duty_cycle_, lift_direction_);
-    ROS_INFO_NAMED(ROS_NAME, "Is in position                : %d", is_in_position_);
-    ROS_INFO_NAMED(ROS_NAME, "Is moving                     : %d", is_moving_);
-    ROS_INFO_NAMED(ROS_NAME, "MIN/MAX position              : %d/%d", min_lift_position_, max_lift_position_);
-    ROS_INFO_NAMED(ROS_NAME, "MIN/MAX speed                 : %d/%d", min_lift_speed_, max_lift_speed_);
-    ROS_INFO_NAMED(ROS_NAME, "Safety state                  : %d|%d|%d|%d|%d|%d"    , safety_state_[0]
+    ROS_INFO("Lift Position                 : %d", cur_position_);
+    ROS_INFO("Lift Position                 : %d%%", cur_position_percentage_);
+    ROS_INFO("Lift Position Error           : %d", cur_position_error_);
+    ROS_INFO("Lift P|I|PI|DUTY|DIRECTION    : %3.3f|%3.3f|%3.3f|%d|%d", lift_p_cmd_, lift_i_cmd_, lift_pi_cmd_, lift_duty_cycle_, lift_direction_);
+    ROS_INFO("Is in position                : %d", is_in_position_);
+    ROS_INFO("Is moving                     : %d", is_moving_);
+    ROS_INFO("MIN/MAX position              : %d/%d", min_lift_position_, max_lift_position_);
+    ROS_INFO("MIN/MAX speed                 : %d/%d", min_lift_speed_, max_lift_speed_);
+    ROS_INFO("Safety state                  : %d|%d|%d|%d|%d|%d"    , safety_state_[0]
                                                                                     , safety_state_[1]
                                                                                     , safety_state_[2]
                                                                                     , safety_state_[3]
                                                                                     , safety_state_[4]
                                                                                     , safety_state_[5]);
-    ROS_INFO_NAMED(ROS_NAME, "Safety Input State            : %d", safety_input_state_);
-    ROS_INFO_NAMED(ROS_NAME, "Extra Input State             : %d", extra_input_state_);
-    ROS_INFO_NAMED(ROS_NAME, "Extra Output State            : %d", extra_output_state_);
+    ROS_INFO("Safety Input State            : %d", safety_input_state_);
+    ROS_INFO("Extra Input State             : %d", extra_input_state_);
+    ROS_INFO("Extra Output State            : %d", extra_output_state_);
 
     for(int i = 0; i < 8; i++)
-        ROS_INFO_NAMED(ROS_NAME, "ADC(%d) CUR/AVG/MIN/MAX   : %d, %d, %d, %d", i, adc_eng_[i][0], adc_eng_[i][1], adc_eng_[i][2], adc_eng_[i][3]);
+        ROS_INFO("ADC(%d) CUR/AVG/MIN/MAX   : %d, %d, %d, %d", i, adc_eng_[i][0], adc_eng_[i][1], adc_eng_[i][2], adc_eng_[i][3]);
 }
 
 bool LiftController::update()
 {
     if(!controller_enabled_)
     {
-        ROS_WARN_NAMED(ROS_NAME, "Trying to update lift while not enabled.");
+        ROS_WARN("Trying to update lift while not enabled.");
         return false;
     }
 
-    ROS_DEBUG_NAMED(ROS_NAME, "Updating lift and bumper controller state."); 
+    ROS_DEBUG("Updating lift and bumper controller state."); 
     
     bool all_success = true;
     all_success = getBumperStates() && all_success;
@@ -441,7 +582,7 @@ void LiftController::handleSafety()
     // Emergency input and button
     if(safety_input_state_ == 1 or safety_state_[0] == 1)
     {
-        ROS_WARN_THROTTLE_NAMED(0.1, ROS_NAME, "Emergency stop activated, wheels will be powered down.");
+        ROS_WARN_THROTTLE(0.1, "Emergency stop activated, wheels will be powered down.");
         sh_emergency_ = true;
     }
 
@@ -453,14 +594,14 @@ void LiftController::handleSafety()
             break;
         case 1:     // Watchdog error
             no_alarm_ = false;
-            ROS_WARN_THROTTLE_NAMED(0.1, ROS_NAME, "The lift controller reported an watchdog error.");
+            ROS_WARN_THROTTLE(0.1, "The lift controller reported an watchdog error.");
             break;
         case 2:     // Force stop motor received
-            ROS_WARN_THROTTLE_NAMED(0.1, ROS_NAME, "The lift controller reported an forced motor stop.");
+            ROS_WARN_THROTTLE(0.1, "The lift controller reported an forced motor stop.");
             no_alarm_ = false;
             break;
         default:
-            ROS_ERROR_THROTTLE_NAMED(0.1, ROS_NAME, "The lift controller reported an unknown error code.");
+            ROS_ERROR_THROTTLE(0.1, "The lift controller reported an unknown error code.");
             no_alarm_ = false;
             break;
     }
@@ -475,17 +616,17 @@ bool LiftController::setPose(int speed_precentage, int position_percentage)
 {
     if(!controller_enabled_)
     {
-        ROS_ERROR_NAMED(ROS_NAME, "Cannot set pose while lift is disabled.");
+        ROS_ERROR("Cannot set pose while lift is disabled.");
         return false;
     }
 
     if(speed_precentage < 0 || speed_precentage > 100 || position_percentage < 0 || position_percentage > 100)
     {
-        ROS_ERROR_NAMED(ROS_NAME, "Invalid percentages requested, position %d%%, speed %d%%.", position_percentage, speed_precentage);
+        ROS_ERROR("Invalid percentages requested, position %d%%, speed %d%%.", position_percentage, speed_precentage);
         return false;
     } 
 
-    ROS_INFO_NAMED(ROS_NAME, "Moving lift to %d%% at %d%% of maximal speed.", position_percentage, speed_precentage);       
+    ROS_INFO("Moving lift to %d%% at %d%% of maximal speed.", position_percentage, speed_precentage);       
 
     ControllerResponse response(LIFT_CONTROLLER_MOVE_TO, HARDWARE_CONTROL_TIMEOUT);
     response.addExpectedDataItem(ControllerData(speed_precentage, set_lift_speed_percentage_, "Speed was not set to requested value."));
@@ -746,7 +887,7 @@ bool LiftController::setControllerParameters(double p, double i, int i_lim, int 
 {
     if(float_scale_ == -1)
     {
-        ROS_WARN_NAMED(ROS_NAME, "setControllerParameters: Float scale was not set.");      
+        ROS_WARN("setControllerParameters: Float scale was not set.");      
         return false;
     }
 
@@ -795,26 +936,26 @@ bool LiftController::setMinMaxLiftSpeed(int min_speed, int max_speed)
 
 void LiftController::CB_SetControllerState(const std_msgs::Bool::ConstPtr& enable_message)
 {
-    ROS_INFO_NAMED(ROS_NAME.c_str(), "%s lift", enable_message->data?"Enabling":"Disabling");
+    ROS_INFO("%s lift", enable_message->data?"Enabling":"Disabling");
 
     requested_controller_enabled_ = enable_message->data;
     if(enable_message->data) 
     {   
         if(controller_enabled_)
-            ROS_INFO_NAMED(ROS_NAME, "Lift already enabled.");
+            ROS_INFO("Lift already enabled.");
         else if(enable())
-            ROS_INFO_NAMED(ROS_NAME, "Lift successfully enabled.");
+            ROS_INFO("Lift successfully enabled.");
         else
-            ROS_WARN_NAMED(ROS_NAME, "Lift NOT enabled!");
+            ROS_WARN("Lift NOT enabled!");
     }
     else
     {
         if(!controller_enabled_)
-            ROS_INFO_NAMED(ROS_NAME, "Lift already disabled.");
+            ROS_INFO("Lift already disabled.");
         else if(disable())
-            ROS_INFO_NAMED(ROS_NAME, "Lift successfully disabled");
+            ROS_INFO("Lift successfully disabled");
         else
-            ROS_WARN_NAMED(ROS_NAME, "Lift NOT disabled!");
+            ROS_WARN("Lift NOT disabled!");
     }          
 }
 
@@ -823,5 +964,5 @@ void LiftController::CB_LiftPositionRequest(const rose_base_msgs::lift_command::
     if(no_alarm_)
         setPose(lift_command->speed_percentage, 100.0 - lift_command->position_percentage); 
     else
-        ROS_WARN_NAMED(ROS_NAME, "Not setting requested lift position due to alarm state. (Alarm code: %d)", safety_state_[5]);
+        ROS_WARN("Not setting requested lift position due to alarm state. (Alarm code: %d)", safety_state_[5]);
 }
