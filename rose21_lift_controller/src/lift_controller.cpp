@@ -23,7 +23,7 @@ LiftController::LiftController()
     , requested_controller_enabled_(false)
     , sh_emergency_(SharedVariable<bool>("emergency"))
     , float_scale_(-1)
-    , no_alarm_(false)
+    , safety_ok_(false)
 {
     loadParameters();
 
@@ -172,9 +172,13 @@ void LiftController::loadParameters()
     ROS_ASSERT_MSG(pn.getParam("lift/hysteresis",   lift_hysteresis_), "Parameter lift/hysteresis must be specified.");
 
     ROS_ASSERT_MSG(pn.getParam("lift/base_joint",           base_joint_), "Parameter lift/base_joint must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/top_joint",            top_joint_), "Parameter lift/top_joint must be specified.");
+    ROS_ASSERT_MSG(pn.getParam("lift/top_joint_mimick_factor",       top_joint_mimick_factor_), "Parameter lift/top_joint_mimick_factor must be specified.");  
+    ROS_ASSERT_MSG(pn.getParam("lift/top_joint_mimick_offset",       top_joint_mimick_offset_), "Parameter lift/top_joint_mimick_offset must be specified.");  
     ROS_ASSERT_MSG(pn.getParam("lift/arm_length",           lift_arm_length_), "Parameter lift/arm_length must be specified.");   
     ROS_ASSERT_MSG(pn.getParam("lift/motor_lift_distance",  motor_lift_distance_), "Parameter lift/motor_lift_distance must be specified.");   
-    ROS_ASSERT_MSG(pn.getParam("lift/arm_lift_angle",       arm_lift_angle_), "Parameter lift/arm_lift_angle must be specified.");    
+    ROS_ASSERT_MSG(pn.getParam("lift/arm_lift_angle",       arm_lift_angle_), "Parameter lift/arm_lift_angle must be specified.");  
+
 
     // Load lift sensor calibration
     ROS_INFO("Loading lift sensor calibration table.");
@@ -318,6 +322,10 @@ sensor_msgs::JointState LiftController::calculateLiftJointAngle(int position)
     // Set base_joint
     joint_states.name.push_back(base_joint_);
     joint_states.position.push_back(a_lift);
+
+    // Set top_joint, mimicking the lower lift joint, corrected by a certain factor and offset
+    joint_states.name.push_back(top_joint_);
+    joint_states.position.push_back(a_lift*top_joint_mimick_factor_ + top_joint_mimick_offset_);
 
     return joint_states;
 }
@@ -590,19 +598,19 @@ void LiftController::handleSafety()
     switch(safety_state_[5])
     {
         case 0:     // All OK
-            no_alarm_ = true;
+            safety_ok_ = true;
             break;
         case 1:     // Watchdog error
-            no_alarm_ = false;
+            safety_ok_ = false;
             ROS_WARN_THROTTLE(0.1, "The lift controller reported an watchdog error.");
             break;
         case 2:     // Force stop motor received
             ROS_WARN_THROTTLE(0.1, "The lift controller reported an forced motor stop.");
-            no_alarm_ = false;
+            safety_ok_ = false;
             break;
         default:
             ROS_ERROR_THROTTLE(0.1, "The lift controller reported an unknown error code.");
-            no_alarm_ = false;
+            safety_ok_ = false;
             break;
     }
 }
@@ -961,7 +969,7 @@ void LiftController::CB_SetControllerState(const std_msgs::Bool::ConstPtr& enabl
 
 void LiftController::CB_LiftPositionRequest(const rose_base_msgs::lift_command::ConstPtr& lift_command)
 {
-    if(no_alarm_)
+    if(safety_ok_)
         setPose(lift_command->speed_percentage, 100.0 - lift_command->position_percentage); 
     else
         ROS_WARN("Not setting requested lift position due to alarm state. (Alarm code: %d)", safety_state_[5]);

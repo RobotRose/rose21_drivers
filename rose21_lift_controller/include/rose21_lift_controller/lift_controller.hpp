@@ -234,11 +234,14 @@ class LiftController : public HardwareController<Serial>
     int lift_direction_;
 
     std::string base_joint_;
+    std::string top_joint_;
     double      lift_arm_length_;
     double      motor_lift_distance_;
     double      arm_lift_angle_;
+    double      top_joint_mimick_factor_;
+    double      top_joint_mimick_offset_;
 
-    bool no_alarm_;    
+    bool safety_ok_;    
 
     std::map<int, std::vector<rose_geometry::Point>> bumper_footprints_;
     std::vector<std::pair<double, double>> sensor_calibration_data_;
