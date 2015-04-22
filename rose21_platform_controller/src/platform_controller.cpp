@@ -1353,8 +1353,13 @@ void PlatformController::CB_WheelUnitStatesRequest(const rose_base_msgs::wheelun
     }
 
     // ROS_INFO_NAMED(ROS_NAME, "Set wheel unit state request received.");
-
-    velocity_watchdog_.reset();
+    std_msgs::Header header; //! @todo MdL [IMPL]: Reset needs a timestamp in a header.
+    header.stamp = ros::Time::now();
+    if ( not velocity_watchdog_.reset(header) )
+    {
+        ROS_WARN("Received velocity command is too old");
+        return;
+    }
 
     // Transfer data to the wheel units 
     wheelunits_[0].set_rotation_ = goal->requested_state.angle_FR;
