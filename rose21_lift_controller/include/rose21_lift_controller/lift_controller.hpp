@@ -19,8 +19,9 @@
 
 #include <ros/ros.h>
 
-#include "std_msgs/Bool.h"
-#include "sensor_msgs/JointState.h"
+#include <std_msgs/Bool.h>
+#include <sensor_msgs/JointState.h>
+#include <visualization_msgs/Marker.h>
 
 #include "rose_base_msgs/lift_command.h"
 #include "rose_base_msgs/lift_state.h"
@@ -186,9 +187,10 @@ class LiftController : public HardwareController<Serial>
 
   protected:
     // Functions
-    double linearInterpolation(const double& y1, const double& y2, const double& x1, const double& x2, const double& x);
-    double getMotorLength(const double& measurement);
-    double getSensorValue(const double& length);
+    double  linearInterpolation(const double& y1, const double& y2, const double& x1, const double& x2, const double& x);
+    double  getMotorLength(const double& measurement);
+    double  getSensorValue(const double& length);
+    void    publishPolygons(const std::vector<std::vector<rose_geometry::Point>>& polygons, const std::string& frame, const std::string& name);
 
     void                    loadParameters();
 
@@ -245,6 +247,7 @@ class LiftController : public HardwareController<Serial>
 
     std::map<int, std::vector<rose_geometry::Point>> bumper_footprints_;
     std::vector<std::pair<double, double>> sensor_calibration_data_;
+    std::map<std::string, ros::Publisher> polygon_pubs_;
 
     SharedVariable<bool>    sh_emergency_;    
 };

@@ -44,99 +44,6 @@ LiftController::LiftController()
 
     ROS_INFO("Started %s", name_.c_str());
 
-    // Get the bumper footprints
-    //n_p_.getParam("bumper_footprints", bumper_footprints_);
-    //! @todo OH: HACK MAKE BUMPER CLASS? OR NOT? DISCUSS, MAKE CONFIGURABLE VIA YAML
-    std::vector<rose_geometry::Point> bumper;
-    rose_geometry::Point c;
-    float x_size;
-    float y_size;
-    float bumper_width = 0.12/2.0;
-    float bumper_thickness = 0.02/2.0 + 0.05; 
-
-
-    x_size = bumper_thickness;
-    y_size = bumper_width;
-    c = rose_geometry::Point(0.4166, 0.190, 0.0);
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y - y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y - y_size, 0.0));
-    bumper_footprints_[0] = bumper;
-    bumper.clear();
-    
-    x_size = bumper_width;
-    y_size = bumper_thickness;
-    c = rose_geometry::Point(0.284, 0.315, 0.0);
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y - y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y - y_size, 0.0));
-    bumper_footprints_[1] = bumper;
-    bumper.clear();
-    
-    x_size = bumper_width;
-    y_size = bumper_thickness;
-    c = rose_geometry::Point(-0.284, 0.315, 0.0);
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y - y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y - y_size, 0.0));
-    bumper_footprints_[2] = bumper;
-    bumper.clear();
-    
-    x_size = bumper_thickness;
-    y_size = 0.5/2.0;
-    c = rose_geometry::Point(-0.4036, 0.0, 0.0);
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y - y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y - y_size, 0.0));
-    bumper_footprints_[3] = bumper;
-    bumper.clear();
-    
-    
-    x_size = bumper_width;
-    y_size = bumper_thickness;
-    c = rose_geometry::Point(-0.284, -0.315, 0.0);
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y - y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y - y_size, 0.0));
-    bumper_footprints_[4] = bumper;
-    bumper.clear();
-    
-    x_size = bumper_width;
-    y_size = bumper_thickness;
-    c = rose_geometry::Point(0.284, -0.315, 0.0);
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y - y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y - y_size, 0.0));
-    bumper_footprints_[5] = bumper;
-    bumper.clear();
-    
-    x_size = bumper_thickness;
-    y_size = bumper_width;
-    c = rose_geometry::Point(0.4166, -0.190, 0.0);
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y - y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y - y_size, 0.0));
-    bumper_footprints_[6] = bumper;
-    bumper.clear();
-
-    x_size = bumper_thickness;
-    y_size = bumper_width;
-    c = rose_geometry::Point(0.4681, 0.0, 0.0);
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y + y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x - x_size, c.y - y_size, 0.0));
-    bumper.push_back(rose_geometry::Point(c.x + x_size, c.y - y_size, 0.0));
-    bumper_footprints_[7] = bumper;
-    bumper.clear();
-
-
     enable();
 }
 
@@ -182,8 +89,9 @@ void LiftController::loadParameters()
 
     // Load lift sensor calibration
     ROS_INFO("Loading lift sensor calibration table.");
-    // Construct a map of strings
     XmlRpc::XmlRpcValue calibration_table;
+
+    //! @todo OH [IMPR]: Make list of list a standard thing in tools or even expand getParam.
 
     // Get the list of lists
     ROS_ASSERT_MSG(pn.getParam("lift/sensor_calibration", calibration_table), "Parameter lift/sensor_calibration must be specified.");
@@ -210,6 +118,47 @@ void LiftController::loadParameters()
 
     // sort sensor calibration data
     std::sort(sensor_calibration_data_.begin(), sensor_calibration_data_.end());
+
+    // Load the bumper footprints
+    ROS_INFO("Loading bumper footprints, sequence does matter!");
+    XmlRpc::XmlRpcValue bumper_footprints;
+
+    // Get the bumpers list of lists
+    double bumper_width;
+    double bumper_thickness;
+
+    ROS_ASSERT_MSG(pn.getParam("bumpers/bumper_width",       bumper_width), "Parameter bumpers/bumper_width must be specified."); 
+    ROS_ASSERT_MSG(pn.getParam("bumpers/bumper_thickness",   bumper_thickness), "Parameter bumpers/bumper_thickness must be specified."); 
+    ROS_ASSERT_MSG(pn.getParam("bumpers/bumper_footprints", bumper_footprints), "Parameter bumper/bumper_footprints must be specified.");
+    ROS_ASSERT_MSG(bumper_footprints.getType() == XmlRpc::XmlRpcValue::TypeArray, "Parameter bumper/bumper_footprints is not of type 'XmlRpc::XmlRpcValue::TypeArray'.");
+    ROS_INFO(" Bumper [width, thickness]:[%2.2f, %2.2f]", bumper_width, bumper_thickness);
+
+    for (int i = 0; i < bumper_footprints.size(); ++i) 
+    {
+        XmlRpc::XmlRpcValue bumper = bumper_footprints[i];
+        ROS_ASSERT_MSG(bumper.getType() == XmlRpc::XmlRpcValue::TypeArray, "Bumper footprints: Each bumper should be a list of three doubles [center x, center y, yaw].");
+        ROS_ASSERT_MSG(bumper.size() == 3, "Bumper footprints: Each bumper should be a list of three doubles [center x, center y, yaw].");
+        ROS_ASSERT_MSG(bumper[0].getType() == XmlRpc::XmlRpcValue::TypeDouble, "Bumper footprints: Each bumper should be a list of three doubles [center x, center y, yaw].");
+        ROS_ASSERT_MSG(bumper[1].getType() == XmlRpc::XmlRpcValue::TypeDouble, "Bumper footprints: Each bumper should be a list of three doubles [center x, center y, yaw].");
+        ROS_ASSERT_MSG(bumper[2].getType() == XmlRpc::XmlRpcValue::TypeDouble, "Bumper footprints: Each bumper should be a list of three doubles [center x, center y, yaw].");
+
+        double bumper_center_x  = static_cast<double>(bumper[0]);
+        double bumper_center_y  = static_cast<double>(bumper[1]);
+        double bumper_yaw       = static_cast<double>(bumper[2]);
+
+        std::vector<rose_geometry::Point> bumper_footprint;
+        bumper_footprint.push_back(rose_geometry::Point(  bumper_thickness/2.0,   bumper_width/2.0, 0.0));
+        bumper_footprint.push_back(rose_geometry::Point(- bumper_thickness/2.0,   bumper_width/2.0, 0.0));
+        bumper_footprint.push_back(rose_geometry::Point(- bumper_thickness/2.0, - bumper_width/2.0, 0.0));
+        bumper_footprint.push_back(rose_geometry::Point(  bumper_thickness/2.0, - bumper_width/2.0, 0.0));
+        rose_geometry::rotatePointsAroundOrigin(bumper_yaw, bumper_footprint);
+        rose_geometry::translatePoints(bumper_center_x, bumper_center_y, bumper_footprint);
+
+        bumper_footprints_[i] = bumper_footprint;
+
+        ROS_INFO(" Bumper %d [x, y, yaw]:[%2.2f, %2.2f, %2.2f]", i, bumper_center_x, bumper_center_y, bumper_yaw);
+
+    }
 
     ROS_INFO("Loaded '%s' parameters.", name_.c_str());
 }
@@ -351,9 +300,10 @@ void LiftController::publishBumpersState()
 
 
     //! @todo OH: HACK
-    contact_sensor_msgs::bumper                 bumper;
-    contact_sensor_msgs::bumpers                bumpers_msg;
-    geometry_msgs::PolygonStamped               stamped_footprint;
+    contact_sensor_msgs::bumper         bumper;
+    contact_sensor_msgs::bumpers        bumpers_msg;
+    geometry_msgs::PolygonStamped       stamped_footprint;
+    std::vector<std::vector<rose_geometry::Point>>   bumpers_list;
 
     int i = 0;
     for(const auto& bumper_footprint : bumper_footprints_)
@@ -365,14 +315,14 @@ void LiftController::publishBumpersState()
         bumper.footprint    = stamped_footprint;
         bumper.state        = ros::conversion::convert<bool>().get(bumper_states_[i++] != 0);
         bumpers_msg.bumpers.push_back(bumper);
+
+        bumpers_list.push_back(bumper_footprint.second);
     }   
+    publishPolygons(bumpers_list, "base_link", "bumpers");
 
     bumpers2_pub_.publish(bumpers_msg);
 
     ROS_DEBUG("Published bumpers status.");
-
-    // Reset/start communication
-    // resetComm();  
 }
 
 bool LiftController::enable()
@@ -973,4 +923,60 @@ void LiftController::CB_LiftPositionRequest(const rose_base_msgs::lift_command::
         setPose(lift_command->speed_percentage, 100.0 - lift_command->position_percentage); 
     else
         ROS_WARN("Not setting requested lift position due to alarm state. (Alarm code: %d)", safety_state_[5]);
+}
+
+//! @todo OH [IMPR]: Move to rviz tools library.
+void LiftController::publishPolygons(const std::vector<std::vector<rose_geometry::Point>>& polygons, const std::string& frame, const std::string& name)
+{
+    // Check if publisher with this name already exists
+    if ( polygon_pubs_.find(name) == polygon_pubs_.end() ) 
+    {
+        // Not found, add it
+        ros::Publisher polygon_marker_publisher;
+        polygon_pubs_.insert(std::pair<std::string, ros::Publisher>(name, polygon_marker_publisher));
+    
+        if(name != "")
+            polygon_pubs_.at(name)        = n_.advertise<visualization_msgs::Marker>( "debug/polygons/" + name, 1 );        
+        else
+            polygon_pubs_.at(name)        = n_.advertise<visualization_msgs::Marker>( "debug/polygons/default_name", 1 );                
+    }   
+
+    int id = 0;
+    for ( auto& polygon : polygons )
+    {
+        visualization_msgs::Marker marker;
+        marker.header.frame_id = frame;
+        marker.header.stamp = ros::Time::now();
+        marker.ns = "bumpers";
+        marker.id = id++;
+        marker.type = visualization_msgs::Marker::LINE_LIST;
+        marker.action = visualization_msgs::Marker::ADD;
+        
+        marker.color.r = 0.0;
+        marker.color.g = 1.0;
+        marker.color.b = 0.0;
+        marker.color.a = 0.75;
+
+        geometry_msgs::Point p;
+    
+        for ( auto& point : polygon )
+        {
+            p.x = point.x;
+            p.y = point.y;
+            marker.points.push_back(p);
+            marker.points.push_back(p);
+            marker.colors.push_back(marker.color);
+            marker.colors.push_back(marker.color);
+        }
+
+        // Move first point to last position
+        marker.points.push_back(marker.points.front());
+        marker.colors.push_back(marker.colors.front());
+        marker.points.erase(marker.points.begin());
+        marker.colors.erase(marker.colors.begin());
+        marker.scale.x = 0.005;  // Line thickness
+        marker.lifetime = ros::Duration(1.0);
+
+        polygon_pubs_.at(name).publish( marker );
+    }
 }

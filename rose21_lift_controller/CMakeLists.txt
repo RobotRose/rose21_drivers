@@ -12,7 +12,9 @@ find_package(catkin REQUIRED COMPONENTS
 	rose_hardware_comm
 	rose_hardware_controller
 	rose_shared_variables
+	sensor_msgs
 	std_msgs
+	visualization_msgs
 	)
 
 catkin_package(
@@ -28,7 +30,9 @@ catkin_package(
 	rose_hardware_comm
 	rose_hardware_controller
 	rose_shared_variables
+	sensor_msgs
 	std_msgs
+	visualization_msgs
  DEPENDS 
 
 )
