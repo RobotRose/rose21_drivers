@@ -318,15 +318,11 @@ void LiftController::publishBumpersState()
 
         bumpers_list.push_back(bumper_footprint.second);
     }   
+    publishPolygons(bumpers_list, "base_link", "bumpers");
 
     bumpers2_pub_.publish(bumpers_msg);
 
-    publishPolygons(bumpers_list, "base_link", "bumpers");
-
     ROS_DEBUG("Published bumpers status.");
-
-    // Reset/start communication
-    // resetComm();  
 }
 
 bool LiftController::enable()
@@ -978,7 +974,7 @@ void LiftController::publishPolygons(const std::vector<std::vector<rose_geometry
         marker.colors.push_back(marker.colors.front());
         marker.points.erase(marker.points.begin());
         marker.colors.erase(marker.colors.begin());
-        marker.scale.x = 0.01;
+        marker.scale.x = 0.005;  // Line thickness
         marker.lifetime = ros::Duration(1.0);
 
         polygon_pubs_.at(name).publish( marker );
