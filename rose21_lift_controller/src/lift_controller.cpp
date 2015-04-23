@@ -147,10 +147,10 @@ void LiftController::loadParameters()
         double bumper_yaw       = static_cast<double>(bumper[2]);
 
         std::vector<rose_geometry::Point> bumper_footprint;
-        bumper_footprint.push_back(rose_geometry::Point(  bumper_thickness,   bumper_width, 0.0));
-        bumper_footprint.push_back(rose_geometry::Point(- bumper_thickness,   bumper_width, 0.0));
-        bumper_footprint.push_back(rose_geometry::Point(- bumper_thickness, - bumper_width, 0.0));
-        bumper_footprint.push_back(rose_geometry::Point(  bumper_thickness, - bumper_width, 0.0));
+        bumper_footprint.push_back(rose_geometry::Point(  bumper_thickness/2.0,   bumper_width/2.0, 0.0));
+        bumper_footprint.push_back(rose_geometry::Point(- bumper_thickness/2.0,   bumper_width/2.0, 0.0));
+        bumper_footprint.push_back(rose_geometry::Point(- bumper_thickness/2.0, - bumper_width/2.0, 0.0));
+        bumper_footprint.push_back(rose_geometry::Point(  bumper_thickness/2.0, - bumper_width/2.0, 0.0));
         rose_geometry::rotatePointsAroundOrigin(bumper_yaw, bumper_footprint);
         rose_geometry::translatePoints(bumper_center_x, bumper_center_y, bumper_footprint);
 
